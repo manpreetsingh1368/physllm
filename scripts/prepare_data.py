@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-import argparse, os, re, asyncio, aiohttp, time
+import argparse, os, re, asyncio, aiohttp, time, hashlib
 import pandas as pd
 from tqdm.asyncio import tqdm
 from chemspipy import ChemSpider
 from sklearn.model_selection import train_test_split
 import fitz  # PyMuPDF
+from concurrent.futures import ThreadPoolExecutor
+
 
 ARXIV_API = "http://export.arxiv.org/api/query"
-PHYSICS_CATEGORIES = [
-    "astro-ph","cond-mat","quant-ph","hep-th","hep-ph","hep-ex","gr-qc","nucl-th","nucl-ex"
-]
-
+PHYSICS_CATEGORIES = ["astro-ph","cond-mat","quant-ph","hep-th","hep-ph","hep-ex","gr-qc","nucl-th","nucl-ex"]
 DOMAIN_TOKENS = [
     "∇","∂","∮","∇²","∂/∂t","d/dt",
     "eV","MeV","Å","fm","AU","ly","pc","M☉","L☉",
@@ -20,13 +19,16 @@ DOMAIN_TOKENS = [
     "<|c_light|>","<|h_planck|>","<|k_boltzmann|>"
 ]
 
-# ---------------- Tokenizer ----------------
+PDF_CACHE_DIR = "./pdf_cache"
+os.makedirs(PDF_CACHE_DIR, exist_ok=True)
+
+
 def tokenize(text):
     for token in DOMAIN_TOKENS:
         text = text.replace(token, f" {token} ")
     return " ".join(text.split())
 
-# ---------------- Normalize ----------------
+
 def normalize(records):
     clean = []
     for r in records:
@@ -42,28 +44,53 @@ def normalize(records):
         })
     return clean
 
-# ---------------- Async PDF ----------------
-async def fetch_pdf_text(session, url):
+def pdf_cache_path(url):
+    h = hashlib.sha256(url.encode()).hexdigest()
+    return os.path.join(PDF_CACHE_DIR, f"{h}.pdf")
+
+def parse_pdf_bytes(content_bytes):
     try:
-        async with session.get(url) as r:
-            content = await r.read()
-        tmp_path = "/tmp/temp.pdf"
-        with open(tmp_path,"wb") as f: f.write(content)
-        doc = fitz.open(tmp_path)
-        text = ""
-        for page in doc: text += page.get_text()
+        doc = fitz.open(stream=content_bytes, filetype="pdf")
+        text = "".join([page.get_text() for page in doc])
         return text.strip()
     except Exception as e:
-        print(f"[PDF] Failed {url} → {e}")
+        print(f"[PDF] Parse failed → {e}")
         return None
 
-# ---------------- Async arXiv ----------------
+# ---------------- Async PDF Fetch with Cache & Retry ----------------
+async def fetch_pdf(session, url, executor, retries=3):
+    cache_file = pdf_cache_path(url)
+    if os.path.exists(cache_file):
+        with open(cache_file,"rb") as f:
+            content = f.read()
+        return await asyncio.get_event_loop().run_in_executor(executor, parse_pdf_bytes, content)
+    
+    attempt = 0
+    while attempt < retries:
+        try:
+            async with session.get(url, timeout=30) as r:
+                if r.status == 200:
+                    content = await r.read()
+                    with open(cache_file,"wb") as f:
+                        f.write(content)
+                    return await asyncio.get_event_loop().run_in_executor(executor, parse_pdf_bytes, content)
+                else:
+                    print(f"[PDF] HTTP {r.status} for {url}")
+        except Exception as e:
+            print(f"[PDF] Fetch error {url} → {e}")
+        attempt += 1
+        await asyncio.sleep(2**attempt)
+    print(f"[PDF] Failed after {retries} retries: {url}")
+    return None
+
+
 import feedparser
 async def fetch_arxiv(max_results=100, concurrency=5):
     entries = []
     sem = asyncio.Semaphore(concurrency)
-    async with aiohttp.ClientSession() as session:
+    executor = ThreadPoolExecutor(max_workers=8)
 
+    async with aiohttp.ClientSession() as session:
         async def fetch_category(cat):
             start = 0
             batch_size = 50
@@ -73,7 +100,6 @@ async def fetch_arxiv(max_results=100, concurrency=5):
                     async with session.get(url) as resp:
                         feed = feedparser.parse(await resp.text())
                 if not feed.entries: break
-                tasks = []
                 for e in feed.entries:
                     entry = {
                         "source": "arxiv",
@@ -85,26 +111,25 @@ async def fetch_arxiv(max_results=100, concurrency=5):
                         "pdf_url": next((l.href for l in e.links if l.type=="application/pdf"), None)
                     }
                     if entry["pdf_url"]:
-                        tasks.append(asyncio.create_task(fetch_pdf_text(session, entry["pdf_url"])))
+                        entry["pdf_text_task"] = asyncio.create_task(fetch_pdf(session, entry["pdf_url"], executor))
                     else:
-                        tasks.append(asyncio.create_task(asyncio.sleep(0, result="")))
-                    entry["pdf_text_task"] = tasks[-1]
+                        entry["pdf_text_task"] = asyncio.create_task(asyncio.sleep(0, result=""))
                     entries.append(entry)
                 start += batch_size
                 await asyncio.sleep(1)
 
         await asyncio.gather(*[fetch_category(cat) for cat in PHYSICS_CATEGORIES])
 
-        # wait for all pdf tasks
         for e in tqdm(entries, desc="PDFs"):
             pdf_text = await e["pdf_text_task"]
             if pdf_text:
                 e["text"] += "\n\n" + pdf_text
             del e["pdf_text_task"]
 
+    executor.shutdown(wait=True)
     return entries
 
-# ---------------- ChemSpider ----------------
+
 async def fetch_chemspider(cs_api_key, query_list=None):
     cs = ChemSpider(cs_api_key)
     results = []
@@ -124,12 +149,12 @@ async def fetch_chemspider(cs_api_key, query_list=None):
             print(f"[ChemSpider] Failed {mol} → {e}")
     return results
 
-# ---------------- NIST stub ----------------
+
 async def fetch_nist_stub():
     print("[NIST] Stub — implement scraper/API later")
     return []
 
-# ---------------- Save ----------------
+=
 def save_dataset(data, output_dir, fmt, split=True):
     os.makedirs(output_dir, exist_ok=True)
     df = pd.DataFrame(data)
@@ -153,7 +178,7 @@ def save_dataset(data, output_dir, fmt, split=True):
             df.to_json(path, orient="records", lines=True)
         print(f"[✓] Saved dataset → {path} ({len(df)})")
 
-# ---------------- Main ----------------
+
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sources", required=True)
