@@ -66,7 +66,7 @@ rocminfo | grep "gfx"    # note your arch, e.g. gfx1100 (RX 7900)
 ### 3. Clone and build
 
 ```bash
-git clone 
+git clone https://github.com/manpreetsingh1368/physllm.git
 cd physllm
 
 # Verify ROCm setup
@@ -342,6 +342,8 @@ All accessible via `/v1/constants/:symbol`:
 To fine-tune on physics papers/textbooks:
 
 ```bash
+# Requirements
+pip install pandas pyarrow requests tqdm feedparser PyMuPDF chemspipy
 # 1. Prepare data (arXiv physics, NIST, textbooks)
 python scripts/prepare_data.py \
   --sources arxiv_physics,nist_webbook,chemspider \
@@ -409,7 +411,7 @@ MIT — see LICENSE file.
 ```bibtex
 @software{physllm2025,
   title  = {PhysLLM: A Physics and Chemistry LLM Runtime in Rust with AMD ROCm},
-  year   = {2025},
-  url    = {https://github.com/your-org/physllm}
+  year   = {2026},
+  url    = {https://github.com/manpreetsingh1368/physllm}
 }
 ```
