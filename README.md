@@ -346,9 +346,12 @@ To fine-tune on physics papers/textbooks:
 pip install pandas pyarrow requests tqdm feedparser PyMuPDF chemspipy
 # 1. Prepare data (arXiv physics, NIST, textbooks)
 python scripts/prepare_data.py \
-  --sources arxiv_physics,nist_webbook,chemspider \
+  --sources arxiv_physics,chemspider,nist_webbook \
   --output data/physics_corpus \
-  --format parquet
+  --format parquet \
+  --max_arxiv 200 \
+  --chemspider_api YOUR_KEY_HERE \
+  --chem_queries "H2O,CO2,C6H12O6"
 
 # 2. Launch fine-tuning
 ./scripts/train.sh \
