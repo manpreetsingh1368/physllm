@@ -6,6 +6,7 @@ from chemspipy import ChemSpider
 from sklearn.model_selection import train_test_split
 import fitz  # PyMuPDF
 from concurrent.futures import ThreadPoolExecutor
+import json
 
 
 ARXIV_API = "http://export.arxiv.org/api/query"
@@ -57,7 +58,7 @@ def parse_pdf_bytes(content_bytes):
         print(f"[PDF] Parse failed → {e}")
         return None
 
-# ---------------- Async PDF Fetch with Cache & Retry ----------------
+# -- Async PDF Fetch with Cache & Retry --
 async def fetch_pdf(session, url, executor, retries=3):
     cache_file = pdf_cache_path(url)
     if os.path.exists(cache_file):
@@ -154,7 +155,7 @@ async def fetch_nist_stub():
     print("[NIST] Stub — implement scraper/API later")
     return []
 
-=
+
 def save_dataset(data, output_dir, fmt, split=True):
     os.makedirs(output_dir, exist_ok=True)
     df = pd.DataFrame(data)
@@ -178,7 +179,16 @@ def save_dataset(data, output_dir, fmt, split=True):
             df.to_json(path, orient="records", lines=True)
         print(f"[✓] Saved dataset → {path} ({len(df)})")
 
-
+def load_processed_log(out_dir):
+    log_path = os.path.join(output_dir, "processed_log.json")
+    if os.path.exists(log_path):
+        with open(log_path, "r") as f:
+            return set(json.load(f))
+    return set()
+def save_processed_log(output_dir, processed_ids):
+    log_path = os.path.join(output_dir , "processed_log.json")
+    with open(log_path,"w") as f:
+        json.dump(list(processed_ids),f,indent=2)
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sources", required=True)
@@ -189,21 +199,37 @@ async def main():
     parser.add_argument("--chem_queries", type=str, default="")
     args = parser.parse_args()
 
+    os.makedirs(args.output, exist_ok=True)
+    processed_ids = load_processed_log(args.output)
+
     sources = args.sources.split(",")
     all_data = []
 
+    # arXiv
     if "arxiv_physics" in sources:
-        all_data.extend(await fetch_arxiv(max_results=args.max_arxiv))
+        arxiv_entries = await fetch_arxiv(max_results=args.max_arxiv)
+        for e in arxiv_entries:
+            if e.get("id") not in processed_ids:
+                all_data.append(e)
+                processed_ids.add(e.get("id"))
 
+    #  NIST 
     if "nist_webbook" in sources:
-        all_data.extend(await fetch_nist_stub())
+        nist_entries = await fetch_nist_stub()
+        for e in nist_entries:
+            if e.get("id") not in processed_ids:
+                all_data.append(e)
+                processed_ids.add(e.get("id"))
 
+    # ChemSpider -
     if "chemspider" in sources:
         queries = args.chem_queries.split(",") if args.chem_queries else None
-        all_data.extend(await fetch_chemspider(args.chemspider_api, queries))
+        cs_entries = await fetch_chemspider(args.chemspider_api, queries)
+        for e in cs_entries:
+            if e.get("id") not in processed_ids:
+                all_data.append(e)
+                processed_ids.add(e.get("id"))
 
-    clean = normalize(all_data)
+    #  Normalize + Save 
     save_dataset(clean, args.output, args.format, split=True)
-
-if __name__=="__main__":
-    asyncio.run(main())
+    save_processed_log(args.output, processed_ids)
