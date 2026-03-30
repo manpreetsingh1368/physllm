@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import argparse, os, time, requests, feedparser
+import argparse, os, time, requests, feedparser, re
 import pandas as pd
 from tqdm import tqdm
 import fitz  # PyMuPDF
 from chemspipy import ChemSpider
+from sklearn.model_selection import train_test_split
+
 
 ARXIV_API = "http://export.arxiv.org/api/query"
 PHYSICS_CATEGORIES = [
@@ -32,7 +34,6 @@ def fetch_arxiv(max_results=100):
                     "category": cat,
                     "pdf_url": next((l.href for l in e.links if l.type=="application/pdf"), None)
                 }
-                # fetch PDF full text
                 if entry["pdf_url"]:
                     pdf_text = parse_pdf(entry["pdf_url"])
                     if pdf_text:
@@ -61,7 +62,7 @@ def fetch_chemspider(cs_api_key, query_list=None):
     cs = ChemSpider(cs_api_key)
     results = []
     if not query_list:
-        query_list = ["H2O", "CO2", "C6H12O6"]  # default molecules
+        query_list = ["H2O", "CO2", "C6H12O6"]
     for mol in query_list:
         try:
             compounds = cs.search(mol)
@@ -77,7 +78,6 @@ def fetch_chemspider(cs_api_key, query_list=None):
             print(f"[ChemSpider] Failed {mol} → {e}")
     return results
 
-
 def fetch_nist_stub():
     print("[NIST] Stub — implement scraper/API later")
     return []
@@ -88,6 +88,7 @@ def normalize(records):
     for r in records:
         text = r.get("text", "")
         if not text: continue
+        text = re.sub(r"\s+", " ", text)  # normalize whitespace
         clean.append({
             "source": r["source"],
             "id": r.get("id"),
@@ -98,16 +99,43 @@ def normalize(records):
     return clean
 
 
-def save_dataset(data, output_dir, fmt):
+DOMAIN_TOKENS = [
+    "∇","∂","∮","∇²","∂/∂t","d/dt",
+    "eV","MeV","Å","fm","AU","ly","pc","M☉","L☉",
+    "H₂","CO₂","NH₃","H₂O","H₃⁺","HCO⁺",
+    "α","β","γ","δ","ε","ζ","η","θ","κ","λ","μ","ν","ξ","π","ρ","σ","τ","φ","χ","ψ","ω",
+    "<|sim_start|>","<|tool_call|>","<|eq|>","<|/eq|>",
+    "<|c_light|>","<|h_planck|>","<|k_boltzmann|>"
+]
+
+def tokenize(text):
+    for token in DOMAIN_TOKENS:
+        text = text.replace(token, f" {token} ")
+    tokens = text.split()
+    return " ".join(tokens)
+
+def save_dataset(data, output_dir, fmt, split=True):
     os.makedirs(output_dir, exist_ok=True)
     df = pd.DataFrame(data)
-    path = os.path.join(output_dir, f"dataset.{fmt}")
-    if fmt == "parquet":
-        df.to_parquet(path)
-    elif fmt == "jsonl":
-        df.to_json(path, orient="records", lines=True)
-    print(f"[✓] Saved dataset → {path} ({len(df)} samples)")
-
+    if split:
+        train, val = train_test_split(df, test_size=0.1, random_state=42)
+        train_path = os.path.join(output_dir, f"train.{fmt}")
+        val_path = os.path.join(output_dir, f"val.{fmt}")
+        if fmt == "parquet":
+            train.to_parquet(train_path)
+            val.to_parquet(val_path)
+        elif fmt == "jsonl":
+            train.to_json(train_path, orient="records", lines=True)
+            val.to_json(val_path, orient="records", lines=True)
+        print(f"[✓] Saved train → {train_path} ({len(train)})")
+        print(f"[✓] Saved val   → {val_path} ({len(val)})")
+    else:
+        path = os.path.join(output_dir, f"dataset.{fmt}")
+        if fmt == "parquet":
+            df.to_parquet(path)
+        elif fmt == "jsonl":
+            df.to_json(path, orient="records", lines=True)
+        print(f"[✓] Saved dataset → {path} ({len(df)})")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -133,7 +161,9 @@ def main():
         all_data.extend(fetch_chemspider(args.chemspider_api, queries))
 
     clean = normalize(all_data)
-    save_dataset(clean, args.output, args.format)
+    for r in clean:
+        r["text"] = tokenize(r["text"])
+    save_dataset(clean, args.output, args.format, split=True)
 
 if __name__ == "__main__":
     main()
