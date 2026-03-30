@@ -1,0 +1,26 @@
+[package]
+name    = "api-server"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "physllm-server"
+path = "src/main.rs"
+
+[dependencies]
+llm-core       = { path = "../llm-core" }
+sim-agent      = { path = "../sim-agent" }
+domain-physics = { path = "../domain-physics" }
+rocm-backend   = { path = "../rocm-backend" }
+
+axum.workspace          = true
+tower.workspace         = true
+tower-http.workspace    = true
+hyper.workspace         = true
+tokio.workspace         = true
+tokio-stream.workspace  = true
+serde.workspace         = true
+serde_json.workspace    = true
+tracing.workspace       = true
+tracing-subscriber.workspace = true
+anyhow.workspace        = true

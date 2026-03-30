@@ -1,0 +1,26 @@
+[package]
+name    = "rocm-backend"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace    = true
+thiserror.workspace = true
+tracing.workspace   = true
+half.workspace      = true
+bytemuck.workspace  = true
+ndarray.workspace   = true
+rayon.workspace     = true
+parking_lot.workspace = true
+
+# HIP / ROCm FFI is via build.rs + bindgen
+# Users need ROCm installed at /opt/rocm
+
+[build-dependencies]
+bindgen = "0.69"
+
+[features]
+default  = ["rocm"]
+rocm     = []   # enables HIP runtime via build.rs
+cuda     = []   # fallback for CUDA environments
+cpu-only = []   # pure Rust fallback (no GPU)
