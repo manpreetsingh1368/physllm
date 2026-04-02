@@ -36,7 +36,7 @@
       "ParticlePhysics"
     ],
     "constants_db": "configs/nist_codata.json",
-    "system_prompt": "You are PhysLLM, a specialist AI for physics and chemistry."
+    "system_prompt": "I am  PhysLLM, a specialist AI for physics and chemistry."
   },
   "dtype": "F16",
   "tie_word_embeddings": true

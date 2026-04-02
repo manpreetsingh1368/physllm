@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AstrochemParams {
-    pub density_cm3:    f64,   // number density H nuclei cm⁻³
+    pub density_cm3:    f64,   // number density H nuclei cm^³
     pub temperature_K:  f64,
     pub uv_field:       f64,   // in Habing units (G0)
-    pub cosmic_ray_rate: f64,  // ζ, s⁻¹ per H nucleus (~1.3e-17 standard)
+    pub cosmic_ray_rate: f64,  // ζ(lbm), s^¹ per H nucleus (~1.3e-17 standard)
     pub t_end_yr:       f64,
     pub av:             f64,   // visual extinction (mag)
 }

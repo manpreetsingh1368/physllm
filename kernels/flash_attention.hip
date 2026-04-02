@@ -35,8 +35,8 @@ __global__ void flash_attention_kernel(
     int B, int H, int Sq, int Sk, int D,
     float scale, int causal
 ) {
-    const int bh_idx  = blockIdx.x;          // batch * H + head index
-    const int q_tile  = blockIdx.y;          // which tile of Q
+    const int bh_idx  = blockIdx.x;          // batch* H + head index
+    const int q_tile  = blockIdx.y;          //  which tile of Q
     const int tid     = threadIdx.x;
     const int warp_id = tid / WARP_SIZE;
     const int lane    = tid % WARP_SIZE;
