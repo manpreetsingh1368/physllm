@@ -109,5 +109,35 @@ fn forward_and_loss(
     let mut total_loss = 0.0f32;
     let mut total_tokens = 0usize;
 
- 
+    for example in batch{
+        // extracting messages and format to string
+        let text = format_messages(example);
+        let tokens = tokenizer.encode(&text)?;
+
+        if tokens.len() < 2 {continue;}
+        let input = &tokens[..tokens.len() -1];
+        let target = &tokens[1..];
+
+        //forward psss ->>>> logits[ seg\q, vocab]
+        let logits = model.forward(input,0)?;
+
+        // cross entropy loss
+
+     let loss = cross_entropy(&logits,target,cfg.vocab_size);
+     total_loss += loss;
+     total_tokens =+ target.len();
+    }
+    Ok(if total_tokens > 0 {total_loss / total_tokens as f32} else{ 0.0})
+}
+
+fn cross_entropy(logits: &[f32], targets: &[u32], vocab_size: usize) -> f32 {
+    let mut loss = 0.0f32;
+    for (i, &target) in targets.iter().enumerate() {
+        let offset = i * vocab_size;
+        let row    = &logits[offset..offset + vocab_size];
+        let max    = row.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let log_sum_exp = row.iter().map(|&x| (x - max).exp()).sum::<f32>().ln() + max;
+        loss += log_sum_exp - row[target as usize];
+    }
+    loss
 }
