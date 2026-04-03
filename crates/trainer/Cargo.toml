@@ -1,0 +1,22 @@
+# crates/trainer/Cargo.toml
+[package]
+name = "physllm-train"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "physllm-train"
+path = "src/main.rs"
+
+[dependencies]
+llm-core       = { path = "../llm-core" }
+rocm-backend   = { path = "../rocm-backend" }
+domain-physics = { path = "../domain-physics" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+half.workspace = true
+rayon.workspace = true
