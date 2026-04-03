@@ -59,7 +59,55 @@ fn train(cfg: TrainConfig) -> Result<()> {
             // forward Pass + cross-entropy loss
             let loss = forward_and_loss(&model, &tokenizer,batch, &model_cfg)?;
             loss_accum += loss;
+
+            // backward gradient 
+            //manual gradient computation & autograde crate
+
+            backward_pass_stub(loss, learning_rate_schedule(step,&cfg));
+
+            if(step + 1)% cfg.grad_accum_steps == 0 {
+                apply_gradients_stub(&mut model, learning_rate_schedule(step, &cfg));
+                let avg_loss = loss_accum / cfg.grad_accum_steps as f32;
+                info!("step={step} loss={avg_loss:.4} lr={:.2e}", learning_rate_schedule(step,&cfg));
+                loss_accum = 0.0;
+
+            }
+            if step % cfg.eval_every == 0{
+                let val_loss = evaluate(&model,&tokenizer,&val_data,&model_cfg)?;
+                info!("Eval step={step} val_loss={val_loss:.4} ppl={:.2}" , val_loss.exp());
+            }
+            if step % cfg.save_every == 0{
+                save_checkpoint(&model, &cfg.output_dir, step)?;
+                info!("Checkpoint saved: {}/step_{step}", cfg.output_dir);
+            }
+            step +=1;
         }
     }
+    save_checkpoint(&model,&cfg.output_dir, step)?;
+    info!("Traning completed. Finial checkpoint at step {step}.");
+    Ok(())
 
+}
+
+fn learning_rate_schedule(step:usize, cfg: &TrainConfig) -> f32{
+    // linear and cosine(h) decay
+    if step < cfg.warmup_steps{
+        cfg.learning_rate * step as f32 / cfg.warmup_steps as f32
+
+    } else {
+        let progress = (step - cfg.warmup_steps) as f32 / (cfg.total_steps - cfg.warmup_steps) as f32;
+        cfg.learning_rate * (0.5 *(1.0 +(std::f32::consts::PI * progress.cos())))
+    }
+}
+
+fn forward_and_loss(
+    model: &PhysLLMm,
+    tokenizer: &PhysTokenizer,
+    batch: &[serde_json::value],
+    cfg:&ModelConfig,
+) -> Result<f32> {
+    let mut total_loss = 0.0f32;
+    let mut total_tokens = 0usize;
+
+ 
 }
