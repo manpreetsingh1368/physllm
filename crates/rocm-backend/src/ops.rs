@@ -27,8 +27,9 @@ pub fn matmul_f16(
             format!("matmul: a.cols ({k}) != b.rows ({})", b.rows())
         ));
     }
-
+// GPU safety (not test properly yet)
     #[cfg(feature = "rocm")]
+
     unsafe {
         use crate::hip_ffi::*;
         // rocBLAS is column-major; transpose A and B so we get row-major result
@@ -90,21 +91,35 @@ pub fn flash_attention(
     scale:  f32,
     causal: bool,
 ) -> Result<()> {
-    let [batch, heads, seq_q, head_dim] = extract_4d_shape(q)?;
-    let [_, _, seq_k, _]                = extract_4d_shape(k)?;
-    trace!("flash_attn batch={batch} heads={heads} seq_q={seq_q} seq_k={seq_k} d={head_dim}");
+  let (b,h,sq,sk,d) = validate_attention(q,k,v,out)?;
+    //trace!("flash_attn batch={batch} heads={heads} seq_q={seq_q} seq_k={seq_k} d={head_dim}");
+// just update in name here
+        trace!(
+            "flash_attention b={b} h={h} sq={sq} sk={sk} d={d} causal={causal}"
+        );
 
     #[cfg(feature = "rocm")]
     unsafe {
-        // Call our compiled flash_attention.hip kernel
+        // no aliasing
+        // all tensors validated 
+        // Calling  compiled flash_attention.hip kernel
         flash_attention_hip(
             dev.raw_stream(),
-            q.raw_ptr(), k.raw_ptr(), v.raw_ptr(), out.raw_ptr(),
-            batch as i32, heads as i32,
-            seq_q as i32, seq_k as i32, head_dim as i32,
-            scale,
-            causal as i32,
+            q.raw_ptr(), 
+            k.raw_ptr(),
+             v.raw_ptr(), 
+             out.raw_ptr(),
+          b as i32,
+          h as i32,
+          sq as i32,
+          sk as i32,
+          d as i32,
+          scale,
+          causal as i32,
         );
+        hip_check("flash_attention")?;
+        #[cfg(debug_assertions)]
+        hip_sync(dev)?;
     }
 
     #[cfg(not(feature = "rocm"))]
@@ -116,13 +131,12 @@ pub fn flash_attention(
     Ok(())
 }
 
-// ── RoPE Embeddings ───────────────────────────────────────────────────────────
-
+// ── RoPE Embeddings 
 /// Rotary Position Embedding in-place on Q and K tensors.
 pub fn rope_embed(
-    dev:         &GpuDevice,
-    q:           &mut DeviceTensor<f16>,
-    k:           &mut DeviceTensor<f16>,
+    dev: &GpuDevice,
+    q: &mut DeviceTensor<f16>,
+    k: &mut DeviceTensor<f16>,
     seq_offset:  usize,
     theta:       f32,
 ) -> Result<()> {
