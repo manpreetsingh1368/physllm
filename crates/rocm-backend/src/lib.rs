@@ -13,6 +13,7 @@ pub mod kernels;
 pub mod memory;
 pub mod ops;
 pub mod tensor;
+pub mod runtime;
 
 #[cfg(feature = "rocm")]
 pub mod hip_ffi {
