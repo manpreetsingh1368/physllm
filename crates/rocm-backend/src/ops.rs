@@ -7,7 +7,7 @@ use crate::{DeviceTensor, GpuDevice, BackendError, Result};
 use half::f16;
 use tracing::trace;
 
-// ── Matrix Multiply (GEMM) ────────────────────────────────────────────────────
+// ── Matrix Multiply (GEMM) 
 
 /// C = A @ B  (f16, column-major, via rocBLAS hipblasGemmEx)
 pub fn matmul_f16(
@@ -71,8 +71,7 @@ pub fn matmul_f16(
     Ok(())
 }
 
-// ── Flash Attention ───────────────────────────────────────────────────────────
-
+// ── Flash Attention 
 /// Flash Attention 2 forward pass (f16).
 ///
 /// # Arguments
@@ -161,7 +160,7 @@ pub fn rope_embed(
     Ok(())
 }
 
-// ── RMS Normalisation ─────────────────────────────────────────────────────────
+// ── RMS Normalisation 
 
 /// RMSNorm(x, weight) in-place. Common in Llama-style models.
 pub fn rms_norm(
@@ -187,7 +186,7 @@ pub fn rms_norm(
     Ok(())
 }
 
-// ── HIP kernel extern declarations ───────────────────────────────────────────
+// ── HIP kernel extern declarations 
 
 #[cfg(feature = "rocm")]
 extern "C" {
@@ -212,7 +211,7 @@ extern "C" {
     );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers
 
 fn extract_4d_shape(t: &DeviceTensor<f16>) -> Result<[usize; 4]> {
     if t.shape().len() != 4 {
