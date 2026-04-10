@@ -141,3 +141,28 @@ fn cross_entropy(logits: &[f32], targets: &[u32], vocab_size: usize) -> f32 {
     }
     loss
 }
+
+fn evaluate(
+    model: &PhysLLM,
+    tokenizer: &PhysTokenizer,
+    val_data: &[serde_json::Value],
+    cfg: &ModelConfig,
+) -> Result<f32> {
+    let subset: Vec<_> = val_data.iter().take(50).collect();
+    forward_and_loss(model, tokenizer, &subset.into_iter().cloned().collect::<Vec<_>>(), cfg)
+}
+
+fn format_messages(example: &serde_json::Value) -> String {
+    // Apply Llama 3 chat template
+    let mut out = String::from("<|begin_of_text|>");
+    if let Some(msgs) = example["messages"].as_array() {
+        for msg in msgs {
+            let role    = msg["role"].as_str().unwrap_or("user");
+            let content = msg["content"].as_str().unwrap_or("");
+            out.push_str(&format!(
+                "<|start_header_id|>{role}<|end_header_id|>\n\n{content}<|eot_id|>"
+            ));
+        }
+    }
+    out
+}
