@@ -4,6 +4,7 @@ use rocm_backend:: GpuDevice;
 use half::f16; use std::sync::Arc;
 use anyhow::Result;
 use tracing::info;
+use std::path::Path;
 
 struct TrainConfig{
     
@@ -165,4 +166,8 @@ fn format_messages(example: &serde_json::Value) -> String {
         }
     }
     out
+}
+
+fn save_checkpoint(model: &PhysLLM, out_dir: & str, step:usize) -> Result<()>{
+
 }
