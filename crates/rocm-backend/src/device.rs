@@ -3,7 +3,8 @@
 use crate::{BackendError, Result};
 use std::sync::Arc;
 use tracing::{info, warn};
-
+use crate::runtime::*;
+use std::sync::{Arc, Mutex};
 /// Properties of a detected AMD GPU.
 #[derive(Debug, Clone)]
 pub struct GpuProperties {
@@ -29,7 +30,9 @@ unsafe impl Sync for RawStream {}
 #[derive(Debug)]
 pub struct GpuDevice {
     pub props:  GpuProperties,
-    stream:     Arc<RawStream>, // 🚀 no mutex
+    //stream:     Arc<RawStream>, 
+    stream_pool:  Arc<StreamPool>,
+    alocator: Arc<Mutex<GpuAllocator>>,
 }
 
 impl GpuDevice {
@@ -102,7 +105,62 @@ impl GpuDevice {
             }])
         }
     }
+   impl GpuDevice {
+    pub fn launch_async<F>(&self, f: F) -> Result<GpuFuture>
+    where
+        F: FnOnce(*mut std::ffi::c_void),
+    {
+        let stream = self.stream_pool.acquire();
 
+        f(stream.0);
+
+        Ok(GpuFuture {
+            stream,
+            pool: self.stream_pool.clone(),
+        })
+    }
+
+    pub fn malloc(&self, size: usize) -> Result<*mut std::ffi::c_void> {
+        self.allocator.lock().unwrap().alloc(size)
+    }
+
+    pub fn free(&self, ptr: *mut std::ffi::c_void, size: usize) {
+        self.allocator.lock().unwrap().free(ptr, size);
+    }
+
+    pub fn capture_graph<F>(&self, f: F) -> Result<GpuGraph>
+    where
+        F: FnOnce(*mut std::ffi::c_void),
+    {
+        #[cfg(feature = "rocm")]
+        unsafe {
+            use crate::hip_ffi::*;
+
+            let stream = self.stream_pool.acquire();
+
+            hipStreamBeginCapture(stream.0 as _, 0);
+
+            f(stream.0);
+
+            let mut graph = std::ptr::null_mut();
+            hipStreamEndCapture(stream.0 as _, &mut graph);
+
+            let mut exec = std::ptr::null_mut();
+            hipGraphInstantiate(
+                &mut exec,
+                graph,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                0,
+            );
+
+            Ok(GpuGraph { graph, exec })
+        }
+
+        #[cfg(not(feature = "rocm"))]
+        Err(BackendError::Other("Graphs require ROCm".into()))
+    }
+}
     /// Open the best available GPU (by VRAM, then compute units).
     pub fn open_best() -> Result<Self> {
         let devices = Self::enumerate()?;
@@ -181,7 +239,9 @@ impl GpuDevice {
                     max_workgroup: props.maxThreadsPerBlock as u32,
                     rocm_version: detect_rocm_version(),
                 },
-                stream: Arc::new(RawStream(stream as *mut _)),
+                //stream: Arc::new(RawStream(stream as *mut _)), older runtime
+                stream_pool: Arc::new(StreamPool::new()),
+                allocator: Arc::new(Mutex::new(GpuAllocator::new())),
             })
         }
 
