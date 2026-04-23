@@ -1,10 +1,10 @@
 //! GpuDevice — AMD GPU device lifecycle and info 
 
 use crate::{BackendError, Result};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
 use crate::runtime::*;
-use std::sync::{Arc, Mutex};
+
 /// Properties of a detected AMD GPU.
 #[derive(Debug, Clone)]
 pub struct GpuProperties {
@@ -12,7 +12,7 @@ pub struct GpuProperties {
     pub name:             String,
     pub gfx_arch:         String,
     pub vram_total_mb:    usize,
-    pub vram_free_mb:     usize,
+    pub vram_free_mb:    usize,
     pub compute_units:    u32,
     pub wavefront_size:   u32,
     pub max_workgroup:    u32,
@@ -27,12 +27,11 @@ unsafe impl Send for RawStream {}
 unsafe impl Sync for RawStream {}
 
 /// A handle to a single AMD GPU device.
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct GpuDevice {
     pub props:  GpuProperties,
-    //stream:     Arc<RawStream>, 
-    stream_pool:  Arc<StreamPool>,
-    alocator: Arc<Mutex<GpuAllocator>>,
+    stream_pool: Arc<StreamPool>,
+    allocator: Arc<Mutex<GpuAllocator>>,
 }
 
 impl GpuDevice {
@@ -105,7 +104,7 @@ impl GpuDevice {
             }])
         }
     }
-   impl GpuDevice {
+
     pub fn launch_async<F>(&self, f: F) -> Result<GpuFuture>
     where
         F: FnOnce(*mut std::ffi::c_void),
@@ -160,7 +159,7 @@ impl GpuDevice {
         #[cfg(not(feature = "rocm"))]
         Err(BackendError::Other("Graphs require ROCm".into()))
     }
-}
+
     /// Open the best available GPU (by VRAM, then compute units).
     pub fn open_best() -> Result<Self> {
         let devices = Self::enumerate()?;
@@ -217,16 +216,6 @@ impl GpuDevice {
                 props.multiProcessorCount,
             );
 
-            let mut stream: hipStream_t = std::ptr::null_mut();
-
-            let err = hipStreamCreate(&mut stream);
-            if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: "hipStreamCreate failed".into(),
-                });
-            }
-
             Ok(GpuDevice {
                 props: GpuProperties {
                     device_id: idx,
@@ -239,7 +228,6 @@ impl GpuDevice {
                     max_workgroup: props.maxThreadsPerBlock as u32,
                     rocm_version: detect_rocm_version(),
                 },
-                //stream: Arc::new(RawStream(stream as *mut _)), older runtime
                 stream_pool: Arc::new(StreamPool::new()),
                 allocator: Arc::new(Mutex::new(GpuAllocator::new())),
             })
@@ -261,12 +249,12 @@ impl GpuDevice {
                     max_workgroup: 0,
                     rocm_version: "N/A".into(),
                 },
-                stream: Arc::new(RawStream(std::ptr::null_mut())),
+                stream_pool: Arc::new(StreamPool::new()),
+                allocator: Arc::new(Mutex::new(GpuAllocator::new())),
             })
         }
     }
 
-    /// Refresh VRAM stats.
     pub fn refresh_memory(&mut self) -> Result<()> {
         #[cfg(feature = "rocm")]
         unsafe {
@@ -290,44 +278,22 @@ impl GpuDevice {
         Ok(())
     }
 
-    /// Synchronise the stream.
     pub fn synchronise(&self) -> Result<()> {
         #[cfg(feature = "rocm")]
-        unsafe {
-            use crate::hip_ffi::*;
-
-            let err = hipStreamSynchronize(self.stream.0 as _);
-            if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: "hipStreamSynchronize failed".into(),
-                });
-            }
+        {
+            self.stream_pool.synchronize_all();
         }
-
         Ok(())
     }
 
-    /// Raw HIP stream pointer.
-    #[inline(always)]
     pub(crate) fn raw_stream(&self) -> *mut std::ffi::c_void {
-        self.stream.0
+        std::ptr::null_mut()
     }
 }
 
 impl Drop for GpuDevice {
     fn drop(&mut self) {
-        #[cfg(feature = "rocm")]
-        unsafe {
-            use crate::hip_ffi::*;
-
-            if !self.stream.0.is_null() {
-                let err = hipStreamDestroy(self.stream.0 as _);
-                if err != 0 {
-                    warn!("hipStreamDestroy failed during drop");
-                }
-            }
-        }
+        // stream pool owns resources now; nothing to destroy
     }
 }
 
