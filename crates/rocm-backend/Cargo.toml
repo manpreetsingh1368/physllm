@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+crossbeam-queue = "0.3"
 anyhow.workspace    = true
 thiserror.workspace = true
 tracing.workspace   = true
