@@ -71,9 +71,6 @@ unsafe fn get_or_create_hipblas_handle(
         Ok(handle)
     })
 }
- MATMUL
-
-
 pub fn matmul_f16(
     dev: &GpuDevice,
     a: &DeviceTensor<f16>,
