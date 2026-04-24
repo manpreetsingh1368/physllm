@@ -1,6 +1,6 @@
 # crates/trainer/Cargo.toml
 [package]
-name = "physllm-train"
+name = "physllm-trainer"
 version.workspace = true
 edition.workspace = true
 
@@ -12,11 +12,46 @@ path = "src/main.rs"
 llm-core       = { path = "../llm-core" }
 rocm-backend   = { path = "../rocm-backend" }
 domain-physics = { path = "../domain-physics" }
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-anyhow.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
-half.workspace = true
-rayon.workspace = true
+
+# Async & async utilities
+tokio          = { workspace = true, features = ["full"] }
+tokio-util     = "0.7"
+futures        = "0.3"
+
+# Serialization
+serde          = { workspace = true, features = ["derive"] }
+serde_json     = { workspace = true }
+toml           = "0.8"
+safetensors    = "0.4"
+
+# Error handling
+anyhow         = { workspace = true }
+thiserror      = "1.0"
+
+# Tracing & observability
+tracing        = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+tracing-appender = "0.2"
+
+# Metrics
+metrics        = "0.22"
+metrics-exporter-prometheus = "0.13"
+
+# Data structures
+parking_lot    = "0.12"
+dashmap        = "5.5"
+uuid           = { version = "1.0", features = ["v4", "serde"] }
+
+# Progress bars
+indicatif      = "0.17"
+
+# Utilities
+lazy_static    = "1.4"
+num_cpus       = "1.16"
+
+half           = { workspace = true }
+rayon          = { workspace = true }
+
+[dev-dependencies]
+proptest       = "1.4"
+tempfile       = "3.8"

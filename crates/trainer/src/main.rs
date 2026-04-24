@@ -5,6 +5,7 @@ use half::f16; use std::sync::Arc;
 use anyhow::Result;
 use tracing::info;
 use std::path::Path;
+use candle_core::{Tensor,Device}
 
 struct TrainConfig{
     
