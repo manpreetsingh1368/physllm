@@ -1,29 +1,16 @@
 //! rocm-backend — AMD GPU acceleration layer for PhysLLM.
-//!
-//! Architecture:
-//!   GpuDevice (HIP device handle)
-//!     ├── TensorBuffer  (device-side memory, typed)
-//!     ├── KernelRunner  (dispatch GEMM / attention / etc.)
-//!     └── MemoryPool    (pre-allocated pool, avoids hipMalloc overhead)
-
-#![allow(non_upper_case_globals, non_camel_case_types, non_snake_case)]
 
 pub mod device;
-pub mod kernels;
-pub mod memory;
-pub mod ops;
 pub mod tensor;
+pub mod ops;
+pub mod memory;
+pub mod kernels;
 pub mod runtime;
 
-#[cfg(feature = "rocm")]
-pub mod hip_ffi {
-    include!(concat!(env!("OUT_DIR"), "/hip_bindings.rs"));
-}
-
-pub use device::GpuDevice;
+pub use device::{GpuDevice, GpuProperties};
+pub use tensor::DeviceTensor;
 pub use memory::MemoryPool;
 pub use ops::{matmul_f16, flash_attention, rope_embed, rms_norm};
-pub use tensor::DeviceTensor;
 
 use thiserror::Error;
 
@@ -39,6 +26,14 @@ pub enum BackendError {
     KernelLaunch(String),
     #[error("Shape mismatch: {0}")]
     ShapeMismatch(String),
+    #[error("{0}")]
+    Other(String),
+    #[error("Runtime error: {0}")]
+    Runtime(String),
 }
-
-pub type Result<T> = std::result::Result<T, BackendError>;
+pub type Result<T> = std::result:Result<T, BackendError>;
+// HIP EFI hip_bindings
+#[allow(non_snake_case, non_camel_case_types, non_upper_case_globals, dead_code)]
+pub mod hip_ffi {
+    include!(concat!(env!("OUT_DIR"), "/hip_bindings.rs"));
+}
