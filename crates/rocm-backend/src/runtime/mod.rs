@@ -1,9 +1,7 @@
+//! runtime — GPU execution runtime: stream pool and CUDA graph capture.
+
 pub mod stream_pool;
-pub mod allocator;
-pub mod future;
 pub mod graph;
 
-pub use stream_pool::*;
-pub use allocator::*;
-pub use future::*;
-pub use graph::*;
+pub use stream_pool::StreamPool;
+pub use graph::{GraphCapture, CapturedGraph};

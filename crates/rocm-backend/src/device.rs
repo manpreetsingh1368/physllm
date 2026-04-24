@@ -1,308 +1,160 @@
-//! GpuDevice — AMD GPU device lifecycle and info 
+//! device.rs — GPU device management.
 
-use crate::{BackendError, Result};
-use std::sync::{Arc, Mutex};
+use crate::{BackendError, Result, runtime::stream_pool::StreamPool};
+use std::sync::Arc;
 use tracing::{info, warn};
-use crate::runtime::*;
 
-/// Properties of a detected AMD GPU.
 #[derive(Debug, Clone)]
 pub struct GpuProperties {
-    pub device_id:        i32,
-    pub name:             String,
-    pub gfx_arch:         String,
-    pub vram_total_mb:    usize,
-    pub vram_free_mb:    usize,
-    pub compute_units:    u32,
-    pub wavefront_size:   u32,
-    pub max_workgroup:    u32,
-    pub rocm_version:     String,
+    pub device_id:      i32,
+    pub name:           String,
+    pub gfx_arch:       String,
+    pub vram_total_mb:  usize,
+    pub vram_free_mb:   usize,
+    pub compute_units:  u32,
+    pub wavefront_size: u32,
+    pub clock_mhz:      u32,
+    pub memory_bw_gbps: f32,
 }
 
-/// Raw pointer wrapper (HIP stream)
-#[derive(Debug)]
-struct RawStream(*mut std::ffi::c_void);
-
+/// Opaque wrapper around a HIP stream pointer, making it Send+Sync.
+#[derive(Copy, Clone, Debug)]
+pub struct RawStream(pub *mut std::ffi::c_void);
 unsafe impl Send for RawStream {}
 unsafe impl Sync for RawStream {}
 
-/// A handle to a single AMD GPU device.
-#[derive(Clone)]
 pub struct GpuDevice {
-    pub props:  GpuProperties,
-    stream_pool: Arc<StreamPool>,
-    allocator: Arc<Mutex<GpuAllocator>>,
+    pub props:        GpuProperties,
+    pub stream_pool:  Arc<StreamPool>,
+}
+
+impl std::fmt::Debug for GpuDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GpuDevice({})", self.props.name)
+    }
 }
 
 impl GpuDevice {
-    /// Enumerate all available devices.
-    pub fn enumerate() -> Result<Vec<GpuProperties>> {
+    /// Open the first available GPU (device 0).
+    pub fn open_best() -> Result<Self> {
         #[cfg(feature = "rocm")]
-        unsafe {
-            use crate::hip_ffi::*;
-
-            let mut count = 0;
-            let err = hipGetDeviceCount(&mut count);
-            if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: "hipGetDeviceCount failed".into(),
-                });
-            }
-
-            let mut devices = Vec::new();
-
-            for idx in 0..count {
-                let mut props: hipDeviceProp_tR0600 = std::mem::zeroed();
-
-                let err = hipGetDeviceProperties_v2(&mut props, idx);
+        {
+            let mut count = 0i32;
+            unsafe {
+                use crate::hip_ffi::*;
+                let err = hipGetDeviceCount(&mut count);
                 if err != 0 {
-                    warn!("Skipping device {idx}: hipGetDeviceProperties failed");
-                    continue;
+                    return Err(BackendError::DeviceNotFound(
+                        format!("hipGetDeviceCount returned {err}")
+                    ));
                 }
-
-                let name = std::ffi::CStr::from_ptr(props.name.as_ptr())
-                    .to_string_lossy()
-                    .to_string();
-
-                let arch = std::ffi::CStr::from_ptr(props.gcnArchName.as_ptr())
-                    .to_string_lossy()
-                    .to_string();
-
-                let mut free = 0usize;
-                let mut total = 0usize;
-                hipMemGetInfo(&mut free, &mut total);
-
-                devices.push(GpuProperties {
-                    device_id: idx,
-                    name,
-                    gfx_arch: arch,
-                    vram_total_mb: props.totalGlobalMem / (1024 * 1024),
-                    vram_free_mb: free / (1024 * 1024),
-                    compute_units: props.multiProcessorCount as u32,
-                    wavefront_size: props.warpSize as u32,
-                    max_workgroup: props.maxThreadsPerBlock as u32,
-                    rocm_version: detect_rocm_version(),
-                });
             }
-
-            Ok(devices)
+            if count <= 0 {
+                return Err(BackendError::DeviceNotFound("No GPU devices found".into()));
+            }
+            Self::open(0)
         }
-
         #[cfg(not(feature = "rocm"))]
         {
-            Ok(vec![GpuProperties {
-                device_id: -1,
-                name: "CPU Fallback".into(),
-                gfx_arch: "none".into(),
-                vram_total_mb: 0,
-                vram_free_mb: 0,
-                compute_units: rayon::current_num_threads() as u32,
-                wavefront_size: 0,
-                max_workgroup: 0,
-                rocm_version: "N/A".into(),
-            }])
+            Self::open(-1)
         }
     }
 
-    pub fn launch_async<F>(&self, f: F) -> Result<GpuFuture>
-    where
-        F: FnOnce(*mut std::ffi::c_void),
-    {
-        let stream = self.stream_pool.acquire();
-
-        f(stream.0);
-
-        Ok(GpuFuture {
-            stream,
-            pool: self.stream_pool.clone(),
-        })
-    }
-
-    pub fn malloc(&self, size: usize) -> Result<*mut std::ffi::c_void> {
-        self.allocator.lock().unwrap().alloc(size)
-    }
-
-    pub fn free(&self, ptr: *mut std::ffi::c_void, size: usize) {
-        self.allocator.lock().unwrap().free(ptr, size);
-    }
-
-    pub fn capture_graph<F>(&self, f: F) -> Result<GpuGraph>
-    where
-        F: FnOnce(*mut std::ffi::c_void),
-    {
-        #[cfg(feature = "rocm")]
-        unsafe {
-            use crate::hip_ffi::*;
-
-            let stream = self.stream_pool.acquire();
-
-            hipStreamBeginCapture(stream.0 as _, 0);
-
-            f(stream.0);
-
-            let mut graph = std::ptr::null_mut();
-            hipStreamEndCapture(stream.0 as _, &mut graph);
-
-            let mut exec = std::ptr::null_mut();
-            hipGraphInstantiate(
-                &mut exec,
-                graph,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                0,
-            );
-
-            Ok(GpuGraph { graph, exec })
-        }
-
-        #[cfg(not(feature = "rocm"))]
-        Err(BackendError::Other("Graphs require ROCm".into()))
-    }
-
-    /// Open the best available GPU (by VRAM, then compute units).
-    pub fn open_best() -> Result<Self> {
-        let devices = Self::enumerate()?;
-
-        let best = devices
-            .into_iter()
-            .max_by_key(|d| (d.vram_total_mb, d.compute_units))
-            .ok_or_else(|| BackendError::Other("No GPU devices found".into()))?;
-
-        Self::open_device(best.device_id)
-    }
-
-    /// Open a specific device by index.
-    pub fn open_device(idx: i32) -> Result<Self> {
+    /// Open a specific device by ID.
+    pub fn open(idx: i32) -> Result<Self> {
         #[cfg(feature = "rocm")]
         unsafe {
             use crate::hip_ffi::*;
 
             let err = hipSetDevice(idx);
             if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: format!("hipSetDevice({idx}) failed"),
-                });
+                return Err(BackendError::Hip { code: err, msg: format!("hipSetDevice({idx})") });
             }
 
             let mut props: hipDeviceProp_tR0600 = std::mem::zeroed();
-
             let err = hipGetDeviceProperties_v2(&mut props, idx);
             if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: "hipGetDeviceProperties_v2 failed".into(),
-                });
+                return Err(BackendError::Hip { code: err, msg: "hipGetDeviceProperties_v2".into() });
             }
 
-            let name = std::ffi::CStr::from_ptr(props.name.as_ptr())
-                .to_string_lossy()
-                .to_string();
+            let name = std::ffi::CStr::from_ptr(props.name.as_ptr()).to_string_lossy().to_string();
+            let arch = std::ffi::CStr::from_ptr(props.gcnArchName.as_ptr()).to_string_lossy().to_string();
 
-            let arch = std::ffi::CStr::from_ptr(props.gcnArchName.as_ptr())
-                .to_string_lossy()
-                .to_string();
-
-            let mut free = 0usize;
-            let mut total = 0usize;
+            let mut free: usize = 0;
+            let mut total: usize = 0;
             hipMemGetInfo(&mut free, &mut total);
 
-            info!("Opened AMD GPU [{idx}]: {name} ({arch})");
-            info!(
-                "  VRAM: {:.1} GB (free {:.1} GB)  CU: {}",
-                total as f64 / 1e9,
-                free as f64 / 1e9,
-                props.multiProcessorCount,
-            );
+            info!("GPU[{idx}]: {} ({}) {}MB total, {}MB free",
+                  name, arch, total / 1_048_576, free / 1_048_576);
+
+            let stream_pool = Arc::new(StreamPool::new(4)?);
 
             Ok(GpuDevice {
                 props: GpuProperties {
-                    device_id: idx,
+                    device_id:      idx,
                     name,
-                    gfx_arch: arch,
-                    vram_total_mb: total / (1024 * 1024),
-                    vram_free_mb: free / (1024 * 1024),
-                    compute_units: props.multiProcessorCount as u32,
+                    gfx_arch:       arch,
+                    vram_total_mb:  total / 1_048_576,
+                    vram_free_mb:   free / 1_048_576,
+                    compute_units:  props.multiProcessorCount as u32,
                     wavefront_size: props.warpSize as u32,
-                    max_workgroup: props.maxThreadsPerBlock as u32,
-                    rocm_version: detect_rocm_version(),
+                    clock_mhz:      (props.clockRate / 1000) as u32,
+                    memory_bw_gbps: (props.memoryClockRate as f32 / 1e6)
+                                    * (props.memoryBusWidth as f32 / 8.0) * 2.0,
                 },
-                stream_pool: Arc::new(StreamPool::new()),
-                allocator: Arc::new(Mutex::new(GpuAllocator::new())),
+                stream_pool,
             })
         }
 
         #[cfg(not(feature = "rocm"))]
         {
-            warn!("ROCm not enabled; using CPU fallback device.");
-
+            warn!("cpu-only mode — GPU operations are emulated on CPU");
+            let stream_pool = Arc::new(StreamPool::new(1)?);
             Ok(GpuDevice {
                 props: GpuProperties {
-                    device_id: -1,
-                    name: "CPU Fallback".into(),
-                    gfx_arch: "none".into(),
-                    vram_total_mb: 0,
-                    vram_free_mb: 0,
-                    compute_units: rayon::current_num_threads() as u32,
+                    device_id:      idx,
+                    name:           "CPU (cpu-only mode)".into(),
+                    gfx_arch:       "none".into(),
+                    vram_total_mb:  0,
+                    vram_free_mb:   0,
+                    compute_units:  rayon::current_num_threads() as u32,
                     wavefront_size: 0,
-                    max_workgroup: 0,
-                    rocm_version: "N/A".into(),
+                    clock_mhz:      0,
+                    memory_bw_gbps: 0.0,
                 },
-                stream_pool: Arc::new(StreamPool::new()),
-                allocator: Arc::new(Mutex::new(GpuAllocator::new())),
+                stream_pool,
             })
         }
     }
 
-    pub fn refresh_memory(&mut self) -> Result<()> {
+    /// Get a stream from the pool for GPU work submission.
+    pub fn raw_stream(&self) -> *mut std::ffi::c_void {
+        self.stream_pool.get().0
+    }
+
+    /// Wait for all queued work to finish across all streams.
+    pub fn synchronise(&self) -> Result<()> {
+        self.stream_pool.synchronize_all();
+        Ok(())
+    }
+
+    /// Query current free VRAM in MB.
+    pub fn free_vram_mb(&self) -> usize {
         #[cfg(feature = "rocm")]
         unsafe {
             use crate::hip_ffi::*;
-
             let mut free = 0usize;
             let mut total = 0usize;
-
             let err = hipMemGetInfo(&mut free, &mut total);
-            if err != 0 {
-                return Err(BackendError::Hip {
-                    code: err,
-                    msg: "hipMemGetInfo failed".into(),
-                });
-            }
-
-            self.props.vram_free_mb = free / (1024 * 1024);
-            self.props.vram_total_mb = total / (1024 * 1024);
+            if err == 0 { return free / 1_048_576; }
         }
-
-        Ok(())
-    }
-
-    pub fn synchronise(&self) -> Result<()> {
-        #[cfg(feature = "rocm")]
-        {
-            self.stream_pool.synchronize_all();
-        }
-        Ok(())
-    }
-
-    pub(crate) fn raw_stream(&self) -> *mut std::ffi::c_void {
-        std::ptr::null_mut()
+        0
     }
 }
 
 impl Drop for GpuDevice {
     fn drop(&mut self) {
-        // stream pool owns resources now; nothing to destroy
+        // Ensure all pending GPU work finishes before tearing down the device.
+        let _ = self.synchronise();
     }
-}
-
-/// Detect ROCm version more robustly.
-fn detect_rocm_version() -> String {
-    std::env::var("ROCM_VERSION")
-        .ok()
-        .or_else(|| std::fs::read_to_string("/opt/rocm/.info/version").ok())
-        .or_else(|| std::fs::read_to_string("/opt/rocm/version.txt").ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".into())
 }
