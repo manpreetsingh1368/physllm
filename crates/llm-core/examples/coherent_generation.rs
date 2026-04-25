@@ -42,11 +42,11 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════╝\n");
     
     let dev = Arc::new(GpuDevice::open_best().unwrap());
-    println!("🖥️  GPU: {}\n", dev.props.name);
+    println!("  GPU: {}\n", dev.props.name);
     
     let tokenizer = Tokenizer::from_file("/root/models/mistral-7b/tokenizer.json").unwrap();
     
-    println!("📦 Loading Mistral 7B...");
+    println!(" Loading Mistral 7B...");
     use safetensors::SafeTensors;
     use std::fs;
     use std::time::Instant;
@@ -98,8 +98,8 @@ fn main() {
     let prompt = "The physics of black holes";
     let max_tokens = 50;
     
-    println!("📝 Prompt: \"{}\"\n", prompt);
-    print!("💬 ");
+    println!(" Prompt: \"{}\"\n", prompt);
+    print!(" ");
     use std::io::{self, Write};
     io::stdout().flush().unwrap();
     
@@ -234,6 +234,6 @@ fn main() {
              gen_start.elapsed().as_secs_f32());
     
     println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  🎉 COHERENT TEXT GENERATION WORKING!                   ║");
+    println!("║      COHERENT TEXT GENERATION WORKING!                   ║");
     println!("╚══════════════════════════════════════════════════════════╝\n");
 }
