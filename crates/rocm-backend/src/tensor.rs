@@ -130,6 +130,16 @@ impl<T: Element> DeviceTensor<T> {
     pub fn batch(&self) -> usize {
         if self.shape.len() >= 3 { self.shape[0] } else { 1 }
     }
+    
+    /// Get raw device pointer
+    pub fn as_ptr(&self) -> *const T {
+        self.ptr
+    }
+    
+    /// Get mutable raw device pointer
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.ptr
+    }
 
     /// Size in bytes.
     pub fn size_bytes(&self) -> usize {

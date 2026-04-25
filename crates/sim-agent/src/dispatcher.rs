@@ -7,8 +7,7 @@ use crate::{
     reaction_kinetics::{KineticsSim, KineticsParams},
     stellar::{StellarSim, StellarParams},
     astrochem::{AstrochemSim, AstrochemParams},
-    thermodynamics::{ThermodynamicsSim, ThermodynamicsParams},
-    Result, SimError,
+    Result, SimError
 };
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -23,7 +22,7 @@ pub enum SimType {
     ReactionKinetics,
     StellarEvolution,
     AstrochemNetwork,
-    ThermodynamicsEos,
+Eos
 }
 
 /// Input to the simulation agent (from LLM tool call).
@@ -43,7 +42,7 @@ pub enum OutputFormat {
     Summary,
     TimeSeries,
     Hdf5,
-    Json,
+    Json
 }
 
 /// Result returned from a simulation.
@@ -66,7 +65,7 @@ pub struct PlotSpec {
     pub title:  String,
     pub x_label: String,
     pub y_label: String,
-    pub series: Vec<SeriesSpec>,
+    pub series: Vec<SeriesSpec>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,7 +76,7 @@ pub enum PlotKind { Line, Scatter, Heatmap, Histogram, Phase2D }
 pub struct SeriesSpec {
     pub label: String,
     pub x:     Vec<f64>,
-    pub y:     Vec<f64>,
+    pub y:     Vec<f64>
 }
 
 /// The simulation agent — receives requests, runs simulations, returns results.
@@ -133,13 +132,11 @@ impl SimAgent {
                 let sim = AstrochemSim::new(params);
                 sim.run(req.max_steps.unwrap_or(5_000))
             }
-
-            SimType::ThermodynamicsEos => {
-                let params: ThermodynamicsParams = serde_json::from_value(req.params.clone())
-                    .map_err(|e| SimError::Parse(e.to_string()))?;
-                let sim = ThermodynamicsSim::new(params);
-                sim.run(req.max_steps.unwrap_or(1_000))
+            SimType::Eos => {
+                return Err(SimError::InvalidParameter("Equation of state simulation not yet implemented".into()));
             }
+
+            
         }?;
 
         let wall_ms = t0.elapsed().as_millis() as u64;
@@ -157,7 +154,7 @@ impl SimAgent {
             "simulate_kinetics"        => SimType::ReactionKinetics,
             "simulate_stellar"         => SimType::StellarEvolution,
             "simulate_astrochem"       => SimType::AstrochemNetwork,
-            "simulate_thermodynamics"  => SimType::ThermodynamicsEos,
+            "simulate_thermodynamics"  => SimType::Eos,
             other => {
                 warn!("Unknown tool: {other}");
                 return Err(SimError::UnknownType(other.into()));
@@ -174,7 +171,7 @@ impl SimAgent {
             params: args,
             max_steps: None,
             output_fmt: OutputFormat::Summary,
-            description,
+            description
         }).await
     }
 }

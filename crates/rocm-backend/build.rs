@@ -4,6 +4,7 @@
 use std::{env, path::PathBuf, process::Command};
 
 const KERNELS: &[&str] = &[
+    "flash_attention_fused",
     "gemm_f16.hip", "flash_attention.hip", "softmax.hip",
     "rope_embedding.hip", "layer_norm.hip", "kv_cache.hip",
 ];
@@ -182,7 +183,7 @@ extern "C" {
     pub fn hipSetDevice(id: i32) -> i32;
     pub fn hipGetDevice(id: *mut i32) -> i32;
     pub fn hipGetDeviceCount(count: *mut i32) -> i32;
-    pub fn hipGetDeviceProperties_v2(props: *mut hipDeviceProp_tR0600, id: i32) -> i32;
+    pub fn hipGetDevicePropertiesR0600(props: *mut hipDeviceProp_tR0600, id: i32) -> i32;
     pub fn hipDeviceSynchronize() -> i32;
     pub fn hipGetLastError() -> i32;
 

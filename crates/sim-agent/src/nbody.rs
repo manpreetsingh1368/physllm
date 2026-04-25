@@ -244,7 +244,7 @@ fn preset_bodies(preset: &NBodyPreset) -> Vec<Body> {
             let m1 = 2.0e30;
             let m2 = 1.5e30;
             let sep = 1.0e11;
-            let v = ((6.674e-11 * (m1 + m2) / sep).sqrt()) * 0.5;
+            let v = ((6.674e-11_f64 * (m1 + m2) / sep).sqrt()) * 0.5;
             vec![
                 Body { name: "Star A".into(), mass: m1, pos: [-sep/2.0, 0.0, 0.0], vel: [0.0, -v * m2/(m1+m2), 0.0], color: Some("#FF6347".into()) },
                 Body { name: "Star B".into(), mass: m2, pos: [ sep/2.0, 0.0, 0.0], vel: [0.0,  v * m1/(m1+m2), 0.0], color: Some("#87CEEB".into()) },

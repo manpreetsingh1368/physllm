@@ -31,9 +31,10 @@ pub enum BackendError {
     #[error("Runtime error: {0}")]
     Runtime(String),
 }
-pub type Result<T> = std::result:Result<T, BackendError>;
+pub type Result<T> = std::result::Result<T, BackendError>;
 // HIP EFI hip_bindings
 #[allow(non_snake_case, non_camel_case_types, non_upper_case_globals, dead_code)]
 pub mod hip_ffi {
     include!(concat!(env!("OUT_DIR"), "/hip_bindings.rs"));
 }
+pub mod attention_ops;

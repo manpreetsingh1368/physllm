@@ -72,9 +72,9 @@ impl GpuDevice {
             }
 
             let mut props: hipDeviceProp_tR0600 = std::mem::zeroed();
-            let err = hipGetDeviceProperties_v2(&mut props, idx);
+            let err = hipGetDevicePropertiesR0600(&mut props, idx);
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: "hipGetDeviceProperties_v2".into() });
+                return Err(BackendError::Hip { code: err, msg: "hipGetDevicePropertiesR0600".into() });
             }
 
             let name = std::ffi::CStr::from_ptr(props.name.as_ptr()).to_string_lossy().to_string();
@@ -152,9 +152,9 @@ impl GpuDevice {
     }
 }
 
+// Drop handled by StreamPool itself
 impl Drop for GpuDevice {
     fn drop(&mut self) {
-        // Ensure all pending GPU work finishes before tearing down the device.
-        let _ = self.synchronise();
+        // Streams will be cleaned up by StreamPool::drop
     }
 }

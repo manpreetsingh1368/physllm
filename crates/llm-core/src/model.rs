@@ -207,7 +207,7 @@ impl ModelWeights {
             (0..n).map(|_| f16::from_f32(rng.gen::<f32>() * std - std/2.0)).collect()
         };
 
-        let init = |shape: &[usize], std: f32| -> std::result::Result<DeviceTensor<f16>, rocm_backend::BackendError> {
+        let mut init = |shape: &[usize], std: f32| -> std::result::Result<DeviceTensor<f16>, rocm_backend::BackendError> {
             let n = shape.iter().product();
             DeviceTensor::from_slice(&rand_f16(n, std, &mut rng), shape)
         };

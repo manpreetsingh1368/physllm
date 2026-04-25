@@ -266,7 +266,7 @@ fn load_gguf(
     // For now: fall back to random init with a warning
     warn!("GGUF loader not yet fully implemented; using random weights");
     warn!("To use GGUF: convert with `python convert_hf_to_gguf.py <model_dir>`");
-    ModelWeights::random_init(config, device).map_err(LlmError::Backend)
+    ModelWeights::random_init(config, device)
 }
 
 fn load_raw_binary(
@@ -276,7 +276,7 @@ fn load_raw_binary(
 ) -> Result<ModelWeights> {
     warn!("No recognised weight files found in {}", dir.display());
     warn!("Initialising with random weights (training mode or test mode)");
-    ModelWeights::random_init(config, device).map_err(LlmError::Backend)
+    ModelWeights::random_init(config, device)
 }
 
 // ── Weight quantisation helpers ───────────────────────────────────────────────

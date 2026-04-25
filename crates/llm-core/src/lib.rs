@@ -18,6 +18,7 @@ pub mod generate;
 pub mod loader;
 
 pub use config::ModelConfig;
+pub use generate::FinishReason;
 pub use model::PhysLLM;
 pub use generate::{GenerateRequest, GenerateResponse, SamplingParams};
 pub use tokenizer::PhysTokenizer;
@@ -39,3 +40,7 @@ pub enum LlmError {
 }
 
 pub type Result<T> = std::result::Result<T, LlmError>;
+pub mod inference;
+pub mod fast_inference;
+pub mod rope;
+pub mod rms_norm;

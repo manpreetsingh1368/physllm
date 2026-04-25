@@ -62,7 +62,10 @@ impl Drop for StreamPool {
         unsafe {
             use crate::hip_ffi::*;
             while let Some(s) = self.global.pop() {
-                hipStreamDestroy(s.0 as hipStream_t);
+                if !s.0.is_null() {
+                    let _ = hipStreamSynchronize(s.0 as hipStream_t);
+                    let _ = hipStreamDestroy(s.0 as hipStream_t);
+                }
             }
         }
     }

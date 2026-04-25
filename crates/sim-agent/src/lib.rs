@@ -18,7 +18,6 @@ pub mod molecular_dynamics;
 pub mod reaction_kinetics;
 pub mod stellar;
 pub mod astrochem;
-pub mod thermodynamics;
 pub mod dispatcher;
 pub mod tools;
 
