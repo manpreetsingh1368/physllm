@@ -1,0 +1,22 @@
+[package]
+name    = "sim-agent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+llm-core        = { path = "../llm-core" }
+domain-physics  = { path = "../domain-physics" }
+rocm-backend    = { path = "../rocm-backend" }
+
+anyhow.workspace      = true
+thiserror.workspace   = true
+tracing.workspace     = true
+serde.workspace       = true
+serde_json.workspace  = true
+tokio.workspace       = true
+nalgebra.workspace    = true
+ndarray.workspace     = true
+rayon.workspace       = true
+rand.workspace        = true
+rand_chacha.workspace = true
+num-complex.workspace = true

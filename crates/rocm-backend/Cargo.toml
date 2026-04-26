@@ -1,0 +1,23 @@
+[package]
+name    = "rocm-backend"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace      = true
+thiserror.workspace   = true
+tracing.workspace     = true
+half.workspace        = true
+bytemuck.workspace    = true
+ndarray.workspace     = true
+rayon.workspace       = true
+parking_lot.workspace = true
+
+[build-dependencies]
+bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
+
+[features]
+default  = ["cpu-only"]
+rocm     = []
+cuda     = []
+cpu-only = []

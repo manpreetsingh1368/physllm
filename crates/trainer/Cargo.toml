@@ -1,0 +1,43 @@
+[package]
+name    = "physllm-train"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "physllm-train"
+path = "src/main.rs"
+
+[dependencies]
+llm-core       = { path = "../llm-core" }
+rocm-backend   = { path = "../rocm-backend" }
+domain-physics = { path = "../domain-physics" }
+
+# Autograd — use candle cpu-only feature to avoid CUDA/ROCm native lib requirement
+candle-core = { version = "0.6", default-features = false }
+candle-nn   = { version = "0.6", default-features = false }
+
+safetensors    = "0.4"
+memmap2.workspace     = true
+tokio.workspace       = true
+tokio-stream.workspace = true
+serde.workspace        = true
+serde_json.workspace   = true
+half.workspace         = true
+bytemuck.workspace     = true
+ndarray.workspace      = true
+rayon.workspace        = true
+tracing.workspace      = true
+tracing-subscriber.workspace = true
+anyhow.workspace       = true
+thiserror.workspace    = true
+clap                   = { version = "4", features = ["derive"] }
+indicatif              = "0.17"
+sha2                   = "0.10"
+chrono.workspace       = true
+uuid.workspace         = true
+
+[features]
+default  = []
+rocm     = []
+cuda     = []
+cpu-only = []

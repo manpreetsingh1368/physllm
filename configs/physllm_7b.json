@@ -1,0 +1,43 @@
+{
+  "vocab_size": 36864,
+  "domain_vocab_offset": 32768,
+  "domain_vocab_size": 4096,
+  "hidden_dim": 4096,
+  "intermediate_dim": 11008,
+  "num_layers": 32,
+  "num_heads": 32,
+  "num_kv_heads": 8,
+  "head_dim": 128,
+  "max_seq_len": 32768,
+  "rms_norm_eps": 1e-5,
+  "use_rms_norm": true,
+  "rope_theta": 500000.0,
+  "rope_scaling": null,
+  "bos_token_id": 1,
+  "eos_token_id": 2,
+  "pad_token_id": 0,
+  "tokenizer_path": "configs/tokenizer.json",
+  "quantization": {
+    "method": "None",
+    "bits": 16,
+    "group_size": 128
+  },
+  "domain": {
+    "domains": [
+      "QuantumMechanics",
+      "Thermodynamics",
+      "Astrophysics",
+      "Astrochemistry",
+      "PhysicalChemistry",
+      "ComputationalChemistry",
+      "Cosmology",
+      "StatisticalMechanics",
+      "Electromagnetism",
+      "ParticlePhysics"
+    ],
+    "constants_db": "configs/nist_codata.json",
+    "system_prompt": "You are PhysLLM, a specialist AI for physics and chemistry."
+  },
+  "dtype": "F16",
+  "tie_word_embeddings": true
+}

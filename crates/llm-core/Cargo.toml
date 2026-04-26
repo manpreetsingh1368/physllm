@@ -1,0 +1,29 @@
+[package]
+name    = "llm-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rocm-backend   = { path = "../rocm-backend" }
+domain-physics = { path = "../domain-physics" }
+web-search     = { path = "../web-search" }
+
+anyhow.workspace       = true
+thiserror.workspace    = true
+tracing.workspace      = true
+serde.workspace        = true
+serde_json.workspace   = true
+half.workspace         = true
+bytemuck.workspace     = true
+ndarray.workspace      = true
+rayon.workspace        = true
+parking_lot.workspace  = true
+memmap2.workspace      = true
+rand.workspace         = true
+rand_chacha.workspace  = true
+dashmap.workspace      = true
+tokio.workspace        = true
+uuid.workspace         = true
+
+# Tokenizer — use tokenizers crate without default features to avoid heavy native deps
+tokenizers = { version = "0.15", default-features = false }

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhysLLM Voice</title>
+<style>
+  :root {
+    --bg: #0f0f13; --surface: #1a1a22; --border: #2a2a38;
+    --text: #e8e6f0; --muted: #8884a8; --accent: #7f77dd;
+    --green: #1d9e75; --amber: #ef9f27; --red: #e24b4a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
+         min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+         padding: 2rem 1rem; }
+  h1 { font-size: 1.5rem; font-weight: 500; margin-bottom: 0.25rem; color: var(--accent); }
+  .subtitle { font-size: 0.85rem; color: var(--muted); margin-bottom: 2rem; }
+
+  .orb-container { position: relative; width: 160px; height: 160px; margin: 1rem auto 2rem; cursor: pointer; }
+  .orb {
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #9b8ef5, #534ab7 50%, #26215c);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.3s;
+    box-shadow: 0 0 40px #534ab720;
+    user-select: none;
+  }
+  .orb:hover { transform: scale(1.03); }
+  .orb.listening { box-shadow: 0 0 60px #534ab760, 0 0 120px #534ab730; }
+  .orb.speaking  { box-shadow: 0 0 60px #1d9e7550, 0 0 120px #1d9e7530; }
+  .orb.thinking  { box-shadow: 0 0 60px #ef9f2750, 0 0 120px #ef9f2730; }
+  .orb.error     { box-shadow: 0 0 60px #e24b4a50; }
+  .orb svg { width: 48px; height: 48px; opacity: 0.9; }
+
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  @keyframes ripple { 0%{transform:scale(1);opacity:.6} 100%{transform:scale(1.8);opacity:0} }
+  .orb.listening { animation: pulse 2s ease-in-out infinite; }
+  .ripple {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: 50%; border: 2px solid var(--accent);
+    animation: ripple 1.5s ease-out infinite;
+    pointer-events: none;
+  }
+
+  .status { font-size: 0.9rem; color: var(--muted); text-align: center; min-height: 1.4em; margin-bottom: 1.5rem; }
+  .status.active { color: var(--text); }
+
+  .chat { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 1rem; }
+  .msg { padding: 0.9rem 1.1rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.6; }
+  .msg.user { background: var(--surface); border: 1px solid var(--border); align-self: flex-end; max-width: 80%; }
+  .msg.assistant { background: #1e1b33; border: 1px solid #3a3660; max-width: 90%; }
+  .msg .label { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: .05em; }
+  .msg .sources { font-size: 0.7rem; color: var(--muted); margin-top: 0.5rem; }
+  .msg .source-pill { display: inline-block; background: #2a2a3a; border-radius: 10px; padding: 2px 8px; margin: 2px; }
+
+  .controls { display: flex; gap: 0.75rem; margin-top: 1rem; justify-content: center; flex-wrap: wrap; }
+  button {
+    padding: 0.5rem 1.2rem; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 0.85rem; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: #252530; border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button.primary:hover { background: #7068cc; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  select, input[type=range] { background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+  .settings { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; justify-content: center;
+              margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
+  .vol-bar { display: flex; align-items: center; gap: 8px; }
+  canvas#viz { display: block; margin: 0 auto; }
+
+  .latency { font-size: 0.7rem; color: var(--muted); text-align: center; margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+
+<h1>PhysLLM Voice</h1>
+<p class="subtitle">Physics & chemistry AI — speak to interact</p>
+
+<canvas id="viz" width="300" height="40"></canvas>
+
+<div class="orb-container" id="orbContainer" onclick="toggleVoice()">
+  <div class="ripple" id="ripple" style="display:none"></div>
+  <div class="orb" id="orb">
+    <svg id="orbIcon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Mic icon -->
+      <rect x="18" y="6" width="12" height="22" rx="6" fill="white" opacity="0.9"/>
+      <path d="M10 24c0 7.7 6.3 14 14 14s14-6.3 14-14" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      <line x1="24" y1="38" x2="24" y2="44" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="18" y1="44" x2="30" y2="44" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<p class="status" id="status">Click the orb to start talking</p>
+
+<div class="controls">
+  <button class="primary" id="startBtn" onclick="toggleVoice()">Start</button>
+  <button id="clearBtn" onclick="clearChat()">Clear chat</button>
+</div>
+
+<div class="settings">
+  <label>Voice speed
+    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1"
+           oninput="updateSpeed(this.value)">
+    <span id="speedVal">1.0×</span>
+  </label>
+  <label>Language
+    <select id="langSelect" onchange="updateLanguage(this.value)">
+      <option value="en">English</option>
+      <option value="de">German</option>
+      <option value="fr">French</option>
+      <option value="ja">Japanese</option>
+    </select>
+  </label>
+</div>
+<div class="latency" id="latency"></div>
+
+<div class="chat" id="chat"></div>
+
+<script>
+let ws = null;
+let mediaStream = null;
+let audioCtx = null;
+let processor = null;
+let running = false;
+let t0 = 0;
+
+const orb      = document.getElementById('orb');
+const ripple   = document.getElementById('ripple');
+const status   = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const chat     = document.getElementById('chat');
+const latency  = document.getElementById('latency');
+const vizCanvas = document.getElementById('viz');
+const vizCtx    = vizCanvas.getContext('2d');
+
+let analyser = null;
+let vizFrame = null;
+
+function setOrbState(state) {
+  orb.className = 'orb ' + state;
+  ripple.style.display = (state === 'listening') ? 'block' : 'none';
+}
+
+function setStatus(msg, active) {
+  status.textContent = msg;
+  status.className = 'status' + (active ? ' active' : '');
+}
+
+async function toggleVoice() {
+  if (running) { stopVoice(); }
+  else         { await startVoice(); }
+}
+
+async function startVoice() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true,
+               noiseSuppression: true, autoGainControl: true }
+    });
+  } catch(e) {
+    setStatus('Microphone access denied: ' + e.message);
+    return;
+  }
+
+  ws = new WebSocket('ws://localhost:8080/v1/voice');
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    running = true;
+    startBtn.textContent = 'Stop';
+    setOrbState('listening');
+    setStatus('Listening…', true);
+    setupAudioPipeline();
+  };
+
+  ws.onmessage = (evt) => {
+    if (typeof evt.data === 'string') {
+      handleServerMessage(JSON.parse(evt.data));
+    }
+  };
+
+  ws.onclose  = () => { stopVoice(false); };
+  ws.onerror  = (e) => { setStatus('Connection error — is PhysLLM server running?'); setOrbState('error'); };
+}
+
+function setupAudioPipeline() {
+  audioCtx  = new AudioContext({ sampleRate: 16000 });
+  const src = audioCtx.createMediaStreamSource(mediaStream);
+
+  analyser  = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  src.connect(analyser);
+
+  // ScriptProcessor for sending raw PCM (deprecated but widely supported)
+  // In production replace with AudioWorklet
+  processor = audioCtx.createScriptProcessor(512, 1, 1);
+  src.connect(processor);
+  processor.connect(audioCtx.destination);
+
+  processor.onaudioprocess = (e) => {
+    if (!running || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const buf   = e.inputBuffer.getChannelData(0);
+    const bytes = new ArrayBuffer(buf.length * 4);
+    const view  = new DataView(bytes);
+    for (let i = 0; i < buf.length; i++) {
+      view.setFloat32(i * 4, buf[i], true); // little-endian f32
+    }
+    ws.send(bytes);
+  };
+
+  vizFrame = requestAnimationFrame(drawViz);
+}
+
+function drawViz() {
+  if (!analyser) return;
+  vizFrame = requestAnimationFrame(drawViz);
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  vizCtx.fillStyle = '#0f0f13';
+  vizCtx.fillRect(0, 0, 300, 40);
+  vizCtx.strokeStyle = '#7f77dd';
+  vizCtx.lineWidth = 1.5;
+  vizCtx.beginPath();
+  const step = 300 / buf.length;
+  for (let i = 0; i < buf.length; i++) {
+    const y = (buf[i] / 128.0) * 20;
+    i === 0 ? vizCtx.moveTo(i * step, y) : vizCtx.lineTo(i * step, y);
+  }
+  vizCtx.stroke();
+}
+
+function handleServerMessage(msg) {
+  switch(msg.type) {
+    case 'event':
+      handleEvent(msg.event);
+      break;
+    case 'transcript':
+      if (!msg.is_partial) addMessage('user', msg.text, []);
+      break;
+    case 'response':
+      addMessage('assistant', msg.text, msg.sources || []);
+      const elapsed = Date.now() - t0;
+      latency.textContent = `Response in ${elapsed}ms`;
+      break;
+    case 'audio':
+      playAudio(msg.data, msg.sample_rate);
+      break;
+    case 'error':
+      setStatus('Error: ' + msg.message);
+      setOrbState('error');
+      break;
+  }
+}
+
+function handleEvent(evt) {
+  switch(evt.type) {
+    case 'ready':       setStatus('Ready', true); setOrbState('listening'); break;
+    case 'listening':   setStatus('Listening…', true); setOrbState('listening'); break;
+    case 'speech_detected':
+      setStatus(`Speech detected (${(evt.duration_ms/1000).toFixed(1)}s)`, true);
+      t0 = Date.now();
+      break;
+    case 'transcribing': setStatus('Transcribing…', true); setOrbState('thinking'); break;
+    case 'thinking':     setStatus('PhysLLM is thinking…', true); setOrbState('thinking'); break;
+    case 'responding':   setStatus('Responding…', true); setOrbState('thinking'); break;
+    case 'speaking':     setStatus('Speaking…', true); setOrbState('speaking'); break;
+    case 'search_complete':
+      setStatus(`Searched ${evt.sources.join(', ')} — ${evt.count} results`, true);
+      break;
+  }
+}
+
+function playAudio(base64, sampleRate) {
+  // Decode base64 WAV and play
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const ctx = new AudioContext({ sampleRate });
+  ctx.decodeAudioData(bytes.buffer, (decoded) => {
+    const src = ctx.createBufferSource();
+    src.buffer = decoded;
+    src.connect(ctx.destination);
+    src.start();
+    src.onended = () => {
+      setOrbState('listening');
+      setStatus('Listening…', true);
+    };
+  }, (e) => console.error('Audio decode:', e));
+}
+
+function addMessage(role, text, sources) {
+  const div  = document.createElement('div');
+  div.className = 'msg ' + role;
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = role === 'user' ? 'You' : 'PhysLLM';
+  div.appendChild(label);
+  const p = document.createElement('p');
+  p.textContent = text;
+  div.appendChild(p);
+  if (sources && sources.length > 0) {
+    const s = document.createElement('div');
+    s.className = 'sources';
+    s.textContent = 'Sources: ';
+    sources.forEach(src => {
+      const pill = document.createElement('span');
+      pill.className = 'source-pill';
+      pill.textContent = src;
+      s.appendChild(pill);
+    });
+    div.appendChild(s);
+  }
+  chat.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth' });
+}
+
+function stopVoice(closeWs = true) {
+  running = false;
+  startBtn.textContent = 'Start';
+  setOrbState('');
+  setStatus('Click the orb to start talking');
+  if (processor)    { processor.disconnect(); processor = null; }
+  if (audioCtx)     { audioCtx.close(); audioCtx = null; }
+  if (mediaStream)  { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (vizFrame)     { cancelAnimationFrame(vizFrame); vizFrame = null; }
+  if (closeWs && ws) { ws.close(); ws = null; }
+}
+
+function clearChat() { chat.innerHTML = ''; }
+
+function updateSpeed(val) {
+  document.getElementById('speedVal').textContent = parseFloat(val).toFixed(1) + '×';
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'set_voice', speed: parseFloat(val), voice_id: 'en' }));
+  }
+}
+
+function updateLanguage(lang) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'set_language', language: lang }));
+  }
+}
+
+// Check if server is running
+fetch('http://localhost:8080/v1/health')
+  .then(r => r.json())
+  .then(h => { setStatus(`Server ready — ${h.backend} backend`); })
+  .catch(() => { setStatus('Server offline — run: cargo run --release -p api-server'); });
+</script>
+</body>
+</html>
