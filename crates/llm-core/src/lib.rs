@@ -19,7 +19,7 @@ pub mod inference;
 pub mod moe;
 pub mod gpt_oss_loader;
 pub mod loader;
-pub mod search_agent;
+// pub mod search_agent; // requires web-search crate
 pub mod agent;
 
 pub use config::ModelConfig;

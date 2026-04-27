@@ -6,6 +6,7 @@
 pub mod device;
 pub mod kernels;
 pub mod memory;
+pub mod hipblas_ffi;
 pub mod ops;
 pub mod tensor;
 

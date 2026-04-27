@@ -3,6 +3,7 @@
 //! These functions call our compiled HIP kernels (or rocBLAS) for each op.
 //! CPU fallback paths use ndarray + rayon.
 
+use crate::hipblas_ffi::*;
 use crate::{DeviceTensor, GpuDevice, BackendError, Result};
 use half::f16;
 use tracing::trace;
@@ -48,7 +49,7 @@ pub fn matmul_f16(
             c.raw_ptr() as *mut _,    n as i32,
         );
         if err != 0 {
-            return Err(BackendError::Hip { code: err, msg: "hipblasHgemm".into() });
+            return Err(BackendError::Hip { code: err as i32, msg: "hipblasHgemm".into() });
         }
     }
 
@@ -297,9 +298,9 @@ fn cpu_rms_norm(
 #[cfg(feature = "rocm")]
 unsafe fn get_or_create_hipblas_handle(
     _dev: &GpuDevice,
-) -> Result<crate::hip_ffi::hipblasHandle_t> {
+) -> Result<hipblasHandle_t> {
     let mut handle = std::ptr::null_mut();
-    crate::hip_ffi::hipblasCreate(&mut handle);
+    hipblasCreate(&mut handle);
     Ok(handle)
 }
 

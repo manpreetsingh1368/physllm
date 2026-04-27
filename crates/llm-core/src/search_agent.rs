@@ -10,6 +10,7 @@
 //! so the LLM can autonomously decide when to search and what to query.
 
 use crate::{PhysLLM, PhysTokenizer, GenerateRequest, SamplingParams, Result, LlmError};
+#[cfg(feature = "web-search")]
 use web_search::{SearchRouter, SearchResponse};
 use serde::{Deserialize, Serialize};
 use tracing::{info, debug, warn};
@@ -290,7 +291,7 @@ impl<'a> SearchAgent<'a> {
              </tool_call>\n\n\
              Available tools:\n{tools}\n\n\
              When you have enough information, respond directly without using a tool.",
-            tools = web_search::SEARCH_TOOLS
+            tools = ""
         )
     }
 

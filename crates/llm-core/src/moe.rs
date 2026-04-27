@@ -114,7 +114,7 @@ impl MoEInferenceEngine {
 
     /// Generate next token — 100% GPU, MoE routing included.
     pub fn generate_token(&mut self, token: u32, temperature: f32) -> Result<u32> {
-        let cfg = &self.config;
+        let cfg = self.config.clone();
         let hd = cfg.hidden_dim;
 
         // 1. Embedding lookup
@@ -163,7 +163,7 @@ impl MoEInferenceEngine {
         hidden: DeviceTensor<f16>,
         layer_idx: usize,
     ) -> Result<DeviceTensor<f16>> {
-        let cfg = &self.config;
+        let cfg = self.config.clone();
         let hd = cfg.hidden_dim;
         let kv_dim = cfg.num_kv_heads * cfg.head_dim;
         let layer = &self.weights.layers[layer_idx];

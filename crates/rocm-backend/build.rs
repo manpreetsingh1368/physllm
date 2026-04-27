@@ -114,7 +114,7 @@ fn compile_hip_kernels(rocm_path: &str, out_dir: &PathBuf, hip_platform: &str) {
             cmd.arg(flag);
         }
         cmd.args([
-            "-O3", "-ffast-math", "-fPIC",
+            "--rocm-path=/opt/rocm", "-O3", "-ffast-math", "-fPIC",
             "-I", &format!("{rocm_path}/include"),
             "-c", src.to_str().unwrap(),
             "-o", obj.to_str().unwrap(),
@@ -156,6 +156,7 @@ fn generate_hip_bindings(rocm_path: &str, out_dir: &PathBuf) {
     let bindings = bindgen::Builder::default()
         .header(hip_include)
         .clang_arg(format!("-I{rocm_path}/include"))
+        .clang_arg("-D__HIP_PLATFORM_AMD__")
         .allowlist_function("hip.*")
         .allowlist_type("hip.*")
         .allowlist_var("hip.*")

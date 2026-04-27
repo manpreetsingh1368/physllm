@@ -62,10 +62,10 @@ impl<T: Element> DeviceTensor<T> {
                 self.ptr as *mut _,
                 data.as_ptr() as *const _,
                 byte_count,
-                hipMemcpyKind::hipMemcpyHostToDevice,
+                hipMemcpyKind_hipMemcpyHostToDevice,
             );
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: "hipMemcpy H2D".into() });
+                return Err(BackendError::Hip { code: err as i32, msg: "hipMemcpy H2D".into() });
             }
         }
         Ok(())
@@ -82,10 +82,10 @@ impl<T: Element> DeviceTensor<T> {
                 out.as_mut_ptr() as *mut _,
                 self.ptr as *const _,
                 byte_count,
-                hipMemcpyKind::hipMemcpyDeviceToHost,
+                hipMemcpyKind_hipMemcpyDeviceToHost,
             );
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: "hipMemcpy D2H".into() });
+                return Err(BackendError::Hip { code: err as i32, msg: "hipMemcpy D2H".into() });
             }
         }
         Ok(out)
@@ -106,7 +106,7 @@ impl<T: Element> DeviceTensor<T> {
             let mut ptr: *mut std::ffi::c_void = std::ptr::null_mut();
             let err = hipMalloc(&mut ptr, bytes);
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: format!("hipMalloc({bytes} bytes)") });
+                return Err(BackendError::Hip { code: err as i32, msg: format!("hipMalloc({bytes} bytes)") });
             }
             return Ok(ptr as *mut T);
         }
@@ -147,4 +147,4 @@ impl<T: Element> Drop for DeviceTensor<T> {
 
 // Helper: zeroed value for any Pod type
 trait Zeroed: Sized { fn zeroed() -> Self; }
-impl<T: bytemuck::Zeroable> Zeroed for T { fn zeroed() -> Self { bytemuck::zeroed() } }
+impl<T: bytemuck::Zeroable> Zeroed for T { fn zeroed() -> Self { unsafe { std::mem::zeroed() } } }

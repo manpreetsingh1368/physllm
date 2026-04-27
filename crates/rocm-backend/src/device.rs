@@ -48,13 +48,13 @@ impl GpuDevice {
                 let err = hipSetDevice(idx);
                 if err != 0 {
                     return Err(BackendError::Hip {
-                        code: err,
+                        code: err as i32,
                         msg: format!("hipSetDevice({idx}) failed"),
                     });
                 }
 
                 let mut props: hipDeviceProp_tR0600 = std::mem::zeroed();
-                hipGetDeviceProperties_v2(&mut props, idx);
+                hipGetDevicePropertiesR0600(&mut props, idx);
 
                 let name = std::ffi::CStr::from_ptr(props.name.as_ptr())
                     .to_string_lossy()
@@ -120,7 +120,7 @@ impl GpuDevice {
             let stream = self.stream.lock();
             let err = hipStreamSynchronize(stream.0 as hipStream_t);
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: "hipStreamSynchronize".into() });
+                return Err(BackendError::Hip { code: err as i32, msg: "hipStreamSynchronize".into() });
             }
         }
         Ok(())

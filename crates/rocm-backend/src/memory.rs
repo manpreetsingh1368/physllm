@@ -51,7 +51,7 @@ impl MemoryPool {
             let mut ptr: *mut std::ffi::c_void = std::ptr::null_mut();
             let err = hipMalloc(&mut ptr, bytes);
             if err != 0 {
-                return Err(BackendError::Hip { code: err, msg: format!("Pool hipMalloc({} MB)", bytes/1024/1024) });
+                return Err(BackendError::Hip { code: err as i32, msg: format!("Pool hipMalloc({} MB)", bytes/1024/1024) });
             }
             return Ok(ptr as *mut u8);
         }
@@ -85,7 +85,7 @@ pub fn query_free_vram() -> Result<usize> {
         let mut total: usize = 0;
         let err = hipMemGetInfo(&mut free, &mut total);
         if err != 0 {
-            return Err(BackendError::Hip { code: err, msg: "hipMemGetInfo".into() });
+            return Err(BackendError::Hip { code: err as i32, msg: "hipMemGetInfo".into() });
         }
         Ok(free)
     }

@@ -63,7 +63,7 @@ impl InferenceEngine {
     /// Generate the next token from a single input token.
     /// Everything runs on GPU — no CPU/GPU transfers during the layer loop.
     pub fn generate_token(&mut self, token: u32, temperature: f32) -> Result<u32> {
-        let cfg = &self.config;
+        let cfg = self.config.clone();
         let hd = cfg.hidden_dim;
         let kv_dim = cfg.num_kv_heads * cfg.head_dim;
         let inter = cfg.intermediate_dim;
@@ -117,7 +117,7 @@ impl InferenceEngine {
         hidden: DeviceTensor<f16>,
         layer_idx: usize,
     ) -> Result<DeviceTensor<f16>> {
-        let cfg = &self.config;
+        let cfg = self.config.clone();
         let hd = cfg.hidden_dim;
         let kv_dim = cfg.num_kv_heads * cfg.head_dim;
         let inter = cfg.intermediate_dim;
@@ -184,7 +184,7 @@ impl InferenceEngine {
 
         // 6. Output projection (GPU matmul)
         // Reshape attn_out to [1, hidden_dim] for matmul
-        let attn_flat = DeviceTensor::alloc(&[1, hd])
+        let attn_flat: DeviceTensor<f16> = DeviceTensor::alloc(&[1, hd])
             .map_err(|e| LlmError::Backend(e))?;
         // Note: attn_out data is already [1, num_heads * head_dim] = [1, hidden_dim]
         // We can reinterpret the shape without copying
