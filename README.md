@@ -33,7 +33,13 @@ docker run -d \
   vllm serve /models/gpt-oss-20b --host 0.0.0.0
 
 # Wait ~2 minutes for model to load, then:
-curl -s -X POST http://localhost:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"/models/gpt-oss-20b","messages":[{"role":"user","content":"Explain quantum physics"}],"max_tokens":500}'
+curl -s -X POST http://localhost:8001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "/models/gpt-oss-20b",
+    "messages": [{"role": "user", "content": "Explain quantum physics"}],
+    "max_tokens": 500
+  }'
 ```
 
 That's it. You have a 20B parameter AI running on your GPU.
