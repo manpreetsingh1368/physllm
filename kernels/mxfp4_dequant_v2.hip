@@ -16,6 +16,23 @@ __device__ __forceinline__ float decode_fp8_e4m3(unsigned char byte) {
 }
 
 __global__ void mxfp4_dequant_kernel(
-    const unsigned char* __restrict__ blocks,
-    const
-)
+    const unsigned char* __restrict__ blocks, // packed 4-bit values
+    const unsigned char* __restrict__ scales,  // FP8 E4M3 per-block scales
+    __half* __restrict__ output,   // dequantized f16 weights
+    int total_elements,
+    int block_size     // 32
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= total_elements) return;
+
+    int block_idx = idx / block_size;
+    float scale = decode_fp8_e4m3(scales[block_idx]);
+
+    // Extract 4-bit nibble
+    int byte_idx = idx / 2;
+    unsigned char byte = blocks[byte_idx];
+    int nibble = (idx % 2 == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+
+    float value = MXFP4_LUT[nibble] * scale;
+    output[idx] = __float2half(value);
+}
