@@ -36,3 +36,36 @@ __global__ void mxfp4_dequant_kernel(
     float value = MXFP4_LUT[nibble] * scale;
     output[idx] = __float2half(value);
 }
+
+
+__global__ void mxfp4_dequant_transpose_kernel(
+    const unsigned char* __restrict__ blocks,
+    const unsigned char* __restrict__ scales,
+    __half* __restrict__ output,   // [num_experts, in_dim, out_dim] (transposed)
+    int num_experts,
+    int out_dim,
+    int in_dim,
+    int block_size
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int total = num_experts * out_dim * in_dim;
+    if (idx >= total) return;
+
+    // Original position: [expert, out, in]
+    int expert = idx / (out_dim * in_dim);
+    int rem    = idx % (out_dim * in_dim);
+    int out_i  = rem / in_dim;
+    int in_i   = rem % in_dim;
+
+    // Dequantize
+    int block_idx = idx / block_size;
+    float scale = decode_fp8_e4m3(scales[block_idx]);
+    int byte_idx = idx / 2;
+    unsigned char byte = blocks[byte_idx];
+    int nibble = (idx % 2 == 0) ? (byte & 0x0F) : ((byte >> 4) & 0x0F);
+    float value = MXFP4_LUT[nibble] * scale;
+
+    // Write transposed: [expert, in, out]
+    int t_idx = expert * in_dim * out_dim + in_i * out_dim + out_i;
+    output[t_idx] = __float2half(value);
+}
