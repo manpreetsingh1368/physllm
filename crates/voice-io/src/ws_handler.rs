@@ -12,7 +12,7 @@ use crate::{
     Result, VoiceError,
     vad::SileroVad,
     stt::SttBackend,
-    tts::{TtsBackend, VoiceConfig},
+    tts::{TtsBackend, VoiceConfig as TtsVoiceConfig},
     session::SessionEvent,
     audio::TARGET_SAMPLE_RATE,
 };
@@ -55,7 +55,7 @@ pub struct VoiceWsHandler {
     stt:     Arc<dyn SttBackend>,
     tts:     Arc<dyn TtsBackend>,
     vad:     SileroVad,
-    voice:   VoiceConfig,
+    voice:   TtsVoiceConfig,
     language: String,
     // LLM API endpoint (PhysLLM API server)
     api_base: String,
@@ -73,7 +73,7 @@ impl VoiceWsHandler {
         let _ = vad.load(); // best-effort
         Self {
             stt, tts, vad,
-            voice:    VoiceConfig::default(),
+            voice:    TtsVoiceConfig::default(),
             language: "en".into(),
             api_base: api_base.to_string(),
             http:     reqwest::Client::new(),

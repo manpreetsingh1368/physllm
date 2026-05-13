@@ -21,7 +21,7 @@ use crate::{
     audio::{AudioDevices, MicCapture, Speaker, AudioChunk},
     vad::{SileroVad, SpeechSegment},
     stt::SttBackend,
-    tts::{TtsBackend, VoiceConfig},
+    tts::{TtsBackend, VoiceConfig as TtsVoiceConfig},
     session::{VoiceSession, SessionEvent},
 };
 use std::sync::Arc;

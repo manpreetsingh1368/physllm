@@ -18,7 +18,9 @@ authors   = ["PhysLLM Project"]
 license   = "MIT"
 
 [workspace.dependencies]
-# Async
+async-trait = "0.1"
+
+# Async runtime
 tokio        = { version = "1",    features = ["full"] }
 tokio-stream = "0.1"
 

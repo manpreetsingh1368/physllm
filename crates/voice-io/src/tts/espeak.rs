@@ -53,10 +53,8 @@ impl TtsBackend for EspeakTts {
             .args([
                 "-v", &format!("{}+m3", voice.voice_id),  // male voice variant 3
                 "-s", &speed_wpm.to_string(),
-                "-p", &(50.0 * voice.pitch) as u32..  // pitch 0-99, default 50
-                    .next().unwrap_or(50).to_string(),
-                "-a", &(200.0 * voice.volume) as u32..
-                    .next().unwrap_or(200).to_string(),
+                "-p", &((50.0 * voice.pitch) as u32).to_string(),   // pitch 0-99, default 50
+                "-a", &((200.0 * voice.volume) as u32).to_string(), // amplitude 0-200
                 "-w", &tmp_wav,
                 &clean,
             ])

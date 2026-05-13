@@ -86,11 +86,11 @@ impl TtsBackend for PiperTts {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! tts/kokoro.rs — Kokoro TTS (Apache 2.0, very high quality).
-//!
-//! Kokoro runs via Python subprocess. Install:
-//!   pip install kokoro-onnx soundfile
-//!   # Download model: https://github.com/remsky/Kokoro-FastAPI
+// tts/kokoro.rs — Kokoro TTS (Apache 2.0, very high quality).
+//
+// Kokoro runs via Python subprocess. Install:
+//   pip install kokoro-onnx soundfile
+//   # Download model: https://github.com/remsky/Kokoro-FastAPI
 
 pub struct KokoroTts {
     host: String,
@@ -137,7 +137,7 @@ impl TtsBackend for KokoroTts {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! tts/api.rs — OpenAI-compatible TTS API backend.
+// tts/api.rs — OpenAI-compatible TTS API backend.
 
 pub struct OpenAiTts {
     client:   reqwest::Client,
