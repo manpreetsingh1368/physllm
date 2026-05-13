@@ -97,16 +97,29 @@ impl VoicePipeline {
 
         // STT
         let stt: Arc<dyn SttBackend> = {
-            use crate::stt::local::{WhisperLocal, WhisperModel};
-            let model = match config.whisper_model.as_str() {
-                "tiny.en"   => WhisperModel::TinyEn,
-                "base.en"   => WhisperModel::BaseEn,
-                "small.en"  => WhisperModel::SmallEn,
-                "medium.en" => WhisperModel::MediumEn,
-                "large-v3"  => WhisperModel::LargeV3,
-                other       => WhisperModel::Custom(other.to_string()),
-            };
-            Arc::new(WhisperLocal::load(model, &config.whisper_model_dir, config.whisper_gpu)?)
+            #[cfg(feature = "whisper-local")]
+            {
+                use crate::stt::local::{WhisperLocal, WhisperModel};
+                let model = match config.whisper_model.as_str() {
+                    "tiny.en"   => WhisperModel::TinyEn,
+                    "base.en"   => WhisperModel::BaseEn,
+                    "small.en"  => WhisperModel::SmallEn,
+                    "medium.en" => WhisperModel::MediumEn,
+                    "large-v3"  => WhisperModel::LargeV3,
+                    other       => WhisperModel::Custom(other.to_string()),
+                };
+                Arc::new(WhisperLocal::load(model, &config.whisper_model_dir, config.whisper_gpu)?)
+            }
+            #[cfg(not(feature = "whisper-local"))]
+            {
+                use crate::stt::api::WhisperApi;
+                Arc::new(WhisperApi::new(
+                    &std::env::var("WHISPER_API_URL")
+                        .unwrap_or_else(|_| "http://localhost:8080".into()),
+                    std::env::var("WHISPER_API_KEY").ok(),
+                    "whisper-1",
+                ))
+            }
         };
 
         // TTS
