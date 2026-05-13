@@ -40,11 +40,9 @@ impl SearchCache {
     }
 }
 
-//! ratelimit.rs — Per-domain rate limiting using token buckets.
+// ── RateLimiter (used by router, re-exported via ratelimit.rs) ────────────────
 
 use std::sync::Mutex;
-use std::collections::HashMap;
-use std::time::{Instant, Duration};
 
 pub struct RateLimiter {
     buckets: Mutex<HashMap<String, TokenBucket>>,

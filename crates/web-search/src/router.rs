@@ -212,10 +212,11 @@ impl SearchRouter {
                 // NASA ADS is the gold standard for astronomical objects
                 let ads = NasaAdsBackend::new(self.client.clone(), self.config.nasa_ads_key.clone());
                 let arxiv = ArxivBackend::new(self.client.clone());
+                let astro_query = format!("astro-ph {query}");
 
                 let (r1, r2) = tokio::join!(
                     ads.search(query, self.config.max_results),
-                    arxiv.search(&format!("astro-ph {query}"), self.config.max_results),
+                    arxiv.search(&astro_query, self.config.max_results),
                 );
                 if let Ok(mut r) = r1 { sources_used.push("nasa_ads".into()); all_results.append(&mut r); }
                 if let Ok(mut r) = r2 { sources_used.push("arxiv".into()); all_results.append(&mut r); }

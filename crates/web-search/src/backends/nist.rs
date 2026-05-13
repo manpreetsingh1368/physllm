@@ -103,7 +103,7 @@ fn strip_html(s: &str) -> String {
 fn urlencoded(s: &str) -> String { s.replace(' ', "+") }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! nasa_ads.rs — NASA Astrophysics Data System
+// nasa_ads.rs — NASA Astrophysics Data System
 
 pub struct NasaAdsBackend {
     client:  reqwest::Client,
@@ -194,7 +194,7 @@ impl NasaAdsBackend {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! pubchem.rs — PubChem REST API
+// pubchem.rs — PubChem REST API
 
 pub struct PubchemBackend { client: reqwest::Client }
 
@@ -262,7 +262,7 @@ impl PubchemBackend {
             meta.insert("cid".into(),     cid.to_string());
 
             results.push(SearchResult {
-                title:    iupac.clone().unwrap_or_else(|| format!("Compound CID {cid}")),
+                title:    if iupac.is_empty() { format!("Compound CID {cid}") } else { iupac.clone() },
                 url:      format!("https://pubchem.ncbi.nlm.nih.gov/compound/{cid}"),
                 snippet,
                 full_text: None,
@@ -277,7 +277,7 @@ impl PubchemBackend {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! brave.rs — Brave Search API
+// brave.rs — Brave Search API
 
 pub struct BraveBackend {
     client:  reqwest::Client,
@@ -323,7 +323,7 @@ impl BraveBackend {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//! ddg.rs — DuckDuckGo instant answers (no API key, limited)
+// ddg.rs — DuckDuckGo instant answers (no API key, limited)
 
 pub struct DuckDuckGoBackend { client: reqwest::Client }
 

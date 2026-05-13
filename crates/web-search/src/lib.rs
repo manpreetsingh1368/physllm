@@ -35,8 +35,8 @@ pub enum SearchError {
     Http(#[from] reqwest::Error),
     #[error("Parse error: {0}")]
     Parse(String),
-    #[error("Rate limited by {source}: retry after {retry_after_s}s")]
-    RateLimited { source: String, retry_after_s: u64 },
+    #[error("Rate limited by {backend}: retry after {retry_after_s}s")]
+    RateLimited { backend: String, retry_after_s: u64 },
     #[error("API key missing for {0}")]
     MissingKey(String),
     #[error("No results found for: {0}")]
