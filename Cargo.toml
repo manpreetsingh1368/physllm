@@ -8,6 +8,7 @@ members = [
     "crates/sim-agent",
     "crates/api-server",
     "crates/trainer",
+    "crates/tensor-parallel",
     "crates/voice-io",
 ]
 
