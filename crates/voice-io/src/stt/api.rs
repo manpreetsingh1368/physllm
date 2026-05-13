@@ -99,7 +99,7 @@ impl SttBackend for WhisperApi {
             end_ms:     (samples.len() as u64 * 1000) / 16_000,
             confidence: 0.9,
             is_partial: false,
-            language:   resp.language.unwrap_or_else(|| language.unwrap_or("en").to_string()),
+            language:   if resp.language.is_empty() { language.unwrap_or("en").to_string() } else { resp.language },
         };
         chunk.postprocess();
         Ok(chunk)
