@@ -33,7 +33,7 @@ ort = { version = "=2.0.0-rc.12", features = ["load-dynamic"], optional = true }
 tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], optional = true }
 
 [features]
-default       = ["audio", "websocket"]
+default       = ["audio", "websocket", "whisper-local", "vad"]
 audio         = ["cpal", "hound", "rubato"]
 whisper-local = ["whisper-rs", "audio"]
 vad           = ["ort"]
