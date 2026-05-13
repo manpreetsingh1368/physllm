@@ -52,9 +52,8 @@ impl AstrochemSim {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-//! thermodynamics.rs — Equation of state and phase diagram.
+// thermodynamics.rs — Equation of state and phase diagram.
 
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThermodynamicsParams {

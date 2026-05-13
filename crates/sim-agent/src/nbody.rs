@@ -244,7 +244,7 @@ fn preset_bodies(preset: &NBodyPreset) -> Vec<Body> {
             let m1 = 2.0e30;
             let m2 = 1.5e30;
             let sep = 1.0e11;
-            let v = ((6.674e-11 * (m1 + m2) / sep).sqrt()) * 0.5;
+            let v = ((6.674e-11_f64 * (m1 + m2) / sep).sqrt()) * 0.5;
             vec![
                 Body { name: "Star A".into(), mass: m1, pos: [-sep/2.0, 0.0, 0.0], vel: [0.0, -v * m2/(m1+m2), 0.0], color: Some("#FF6347".into()) },
                 Body { name: "Star B".into(), mass: m2, pos: [ sep/2.0, 0.0, 0.0], vel: [0.0,  v * m1/(m1+m2), 0.0], color: Some("#87CEEB".into()) },
@@ -270,7 +270,7 @@ fn preset_bodies(preset: &NBodyPreset) -> Vec<Body> {
             for i in 0..19 {
                 let r   = rng.gen_range(1e15..5e16_f64);
                 let phi = rng.gen_range(0.0_f64..std::f64::consts::TAU);
-                let v_c = (6.674e-11 * 4e36 / r).sqrt();
+                let v_c = (6.674e-11_f64 * 4e36 / r).sqrt();
                 bodies.push(Body {
                     name:  format!("Star {}", i+1),
                     mass:  rng.gen_range(1e29..3e30),
