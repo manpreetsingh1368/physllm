@@ -208,23 +208,21 @@ int tp_gemm_fp16(
     float       alpha,
     float       beta
 ) {
-    // hipBLAS uses __half for alpha/beta in Hgemm
-    __half ha = __float2half(alpha);
-    __half hb = __float2half(beta);
+    // Use hipblasHalf (u16) for alpha/beta
+    hipblasHalf ha = __float2half(alpha);
+    hipblasHalf hb = __float2half(beta);
 
-    // Row-major A[m,k] × B[k,n] → C[m,n]
-    // In col-major terms: B.T[n,k] × A.T[k,m] → C.T[n,m]
-    blasHgemm(
+    hipblasHgemm(
         h->blas,
-        BLAS_OP_N, BLAS_OP_N,
-        n, m, k,      // (N, M, K) in col-major = (n, m, k) for our row-major
+        HIPBLAS_OP_N, HIPBLAS_OP_N,
+        n, m, k,
         &ha,
-        (const __half*)B, n,   // B is "A" in col-major, leading dim = n
-        (const __half*)A, k,   // A is "B" in col-major, leading dim = k
+        (const hipblasHalf*)B, n,
+        (const hipblasHalf*)A, k,
         &hb,
-        (__half*)C, n
+        (hipblasHalf*)C, n
     );
-    return 0;  // stream is async; call tp_sync() or chain with collectives
+    return 0;
 }
 
 /// C = alpha * A @ B.T + beta * C   (A: [m,k], B: [n,k], C: [m,n])
@@ -238,20 +236,18 @@ int tp_gemm_fp16_bt(
     float       alpha,
     float       beta
 ) {
-    __half ha = __float2half(alpha);
-    __half hb = __float2half(beta);
+    hipblasHalf ha = __float2half(alpha);
+    hipblasHalf hb = __float2half(beta);
 
-    // Row-major A[m,k] × B.T[k,n]
-    // Col-major: B[n,k] × A.T[k,m]  with B as OP_T
-    blasHgemm(
+    hipblasHgemm(
         h->blas,
-        BLAS_OP_T, BLAS_OP_N,
+        HIPBLAS_OP_T, HIPBLAS_OP_N,
         n, m, k,
         &ha,
-        (const __half*)B, k,
-        (const __half*)A, k,
+        (const hipblasHalf*)B, k,
+        (const hipblasHalf*)A, k,
         &hb,
-        (__half*)C, n
+        (hipblasHalf*)C, n
     );
     return 0;
 }

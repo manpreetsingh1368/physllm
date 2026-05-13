@@ -48,14 +48,12 @@ fn build_rocm(out: &PathBuf) {
     // hipcc flags: --offload-arch must be a single combined arg on some versions
     let status = Command::new(&hipcc)
         .args([
-            &format!("--offload-arch={arch}"),  // combined form, more compatible
+            &format!("--offload-arch={arch}"),
             "-O3",
             "-fPIC",
-            &format!("--rocm-path={rocm}"),
             &format!("-I{rocm}/include"),
             &format!("-I{rocm}/hipblas/include"),
             "-DUSE_ROCM",
-            "-x", "hip",          // explicitly tell clang it's HIP source
             "-c", "kernels/gpu_shim.hip",
             "-o", obj.to_str().unwrap(),
         ])
