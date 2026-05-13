@@ -1,0 +1,40 @@
+[package]
+name = "tensor-parallel"
+version = "0.1.0"
+edition = "2021"
+authors = ["PhysLLM Project"]
+license = "MIT"
+description = "GPU-only tensor parallelism for PhysLLM — RCCL AllReduce, sharded attention/MoE, hipBLAS matmul"
+
+[features]
+default = ["rocm"]
+rocm = []    # AMD ROCm + RCCL + hipBLAS  (MI300X / MI250X / RX 7900)
+cuda = []    # NVIDIA CUDA + NCCL + cuBLAS (H100 / A100 / RTX)
+
+[dependencies]
+tokio          = { version = "1", features = ["full"] }
+tokio-stream   = "0.1"
+futures        = "0.3"
+serde          = { version = "1", features = ["derive"] }
+serde_json     = "1"
+half           = { version = "2", features = ["bytemuck", "num-traits"] }
+bytemuck       = { version = "1", features = ["derive"] }
+memmap2        = "0.9"
+safetensors    = "0.4"
+parking_lot    = "0.12"
+dashmap        = "5"
+anyhow         = "1"
+thiserror      = "1"
+tracing        = "0.1"
+uuid           = { version = "1", features = ["v4"] }
+rayon          = "1"
+
+[build-dependencies]
+cc = "1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name    = "tp_bench"
+harness = false
