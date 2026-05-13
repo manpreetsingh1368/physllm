@@ -18,6 +18,7 @@
 //! Model download:
 //!   bash scripts/download_whisper.sh small.en
 
+#[cfg(feature = "whisper-local")]
 pub mod local;
 pub mod api;
 

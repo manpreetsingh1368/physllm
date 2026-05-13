@@ -48,7 +48,8 @@ impl SpeechSegment {
 /// Silero VAD engine.
 pub struct SileroVad {
     /// ONNX session (lazy-loaded)
-    session:  Option<Box<ort::session::Session>>,
+    #[cfg(feature = "vad")]
+    session:  Option<ort::session::Session>,
     model_path: String,
     /// Internal RNN state (h and c tensors)
     h: Array3<f32>,   // [2, 1, 64]
@@ -74,23 +75,23 @@ impl SileroVad {
 
     /// Load the ONNX model (call once before processing).
     pub fn load(&mut self) -> Result<()> {
-        if !Path::new(&self.model_path).exists() {
-            return Err(VoiceError::ModelNotLoaded(format!(
-                "Silero VAD model not found at {}. Download with:\n\
-                 wget https://github.com/snakers4/silero-vad/raw/master/files/silero_vad.onnx \\\n\
-                 -O {}",
-                self.model_path, self.model_path
-            )));
+        #[cfg(feature = "vad")]
+        {
+            if !Path::new(&self.model_path).exists() {
+                return Err(VoiceError::ModelNotLoaded(format!(
+                    "Silero VAD model not found at {}",
+                    self.model_path
+                )));
+            }
+            use ort::session::{builder::GraphOptimizationLevel, Session};
+            let session = Session::builder()
+                .map_err(|e| VoiceError::Vad(e.to_string()))?
+                .with_optimization_level(GraphOptimizationLevel::Level3)
+                .map_err(|e| VoiceError::Vad(e.to_string()))?
+                .commit_from_file(&self.model_path)
+                .map_err(|e| VoiceError::Vad(e.to_string()))?;
+            self.session = Some(session);
         }
-
-        let session = ort::Session::builder()
-            .map_err(|e| VoiceError::Vad(e.to_string()))?
-            .with_optimization_level(ort::GraphOptimizationLevel::Level3)
-            .map_err(|e| VoiceError::Vad(e.to_string()))?
-            .commit_from_file(&self.model_path)
-            .map_err(|e| VoiceError::Vad(e.to_string()))?;
-
-        self.session = Some(Box::new(session));
         Ok(())
     }
 
@@ -102,39 +103,40 @@ impl SileroVad {
             return Ok(self.energy_vad(samples));
         }
 
+        #[cfg(not(feature = "vad"))]
+        return Ok(self.energy_vad(samples));
+
+        #[cfg(feature = "vad")]
+        {
         let session = self.session.as_ref().unwrap();
         let n = samples.len();
 
-        // Input: [1, n] f32
         let input = Array2::from_shape_vec([1, n], samples.to_vec())
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
         let sr = Array1::from_vec(vec![16000i64]);
 
-        let inputs = ort::inputs![
-            "input" => input.view(),
-            "sr"    => sr.view(),
-            "h"     => self.h.view(),
-            "c"     => self.c.view(),
-        ];
-
-        let outputs = session.run(inputs)
+        let outputs = session.run(ort::inputs![
+            "input" => ort::value::TensorRef::from_array_view(&input.view()).map_err(|e| VoiceError::Vad(e.to_string()))?,
+            "sr"    => ort::value::TensorRef::from_array_view(&sr.view()).map_err(|e| VoiceError::Vad(e.to_string()))?,
+            "h"     => ort::value::TensorRef::from_array_view(&self.h.view()).map_err(|e| VoiceError::Vad(e.to_string()))?,
+            "c"     => ort::value::TensorRef::from_array_view(&self.c.view()).map_err(|e| VoiceError::Vad(e.to_string()))?,
+        ])
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
 
-        // Output: speech_prob [1, 1], hn [2, 1, 64], cn [2, 1, 64]
-        let prob  = outputs[0].try_extract_tensor::<f32>()
+        let prob = outputs[0].try_extract_array::<f32>()
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
-        let hn    = outputs[1].try_extract_tensor::<f32>()
+        let hn   = outputs[1].try_extract_array::<f32>()
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
-        let cn    = outputs[2].try_extract_tensor::<f32>()
+        let cn   = outputs[2].try_extract_array::<f32>()
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
 
-        // Update RNN state
         self.h = Array3::from_shape_vec([2, 1, 64], hn.view().iter().cloned().collect())
             .unwrap_or_else(|_| Array3::zeros([2, 1, 64]));
         self.c = Array3::from_shape_vec([2, 1, 64], cn.view().iter().cloned().collect())
             .unwrap_or_else(|_| Array3::zeros([2, 1, 64]));
 
         Ok(prob.view()[[0, 0]])
+        }
     }
 
     /// Simple RMS energy-based VAD (fallback when model not available).

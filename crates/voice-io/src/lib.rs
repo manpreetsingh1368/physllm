@@ -22,6 +22,7 @@
 //!   WS handler → VAD → Whisper → LLM → TTS → WS → Browser speaker
 
 pub mod audio;
+#[cfg_attr(not(feature = "vad"), path = "vad_stub.rs")]
 pub mod vad;
 pub mod stt;
 pub mod tts;

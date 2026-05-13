@@ -27,13 +27,13 @@ rubato    = { version = "0.14", optional = true }
 whisper-rs = { version = "0.11", optional = true }
 
 # VAD — optional (needs ONNX Runtime v2)
-ort = { version = "=2.0.0-rc.12", features = ["load-dynamic"], optional = true }
+ort = { version = "=2.0.0-rc.12", features = ["load-dynamic", "ndarray"], optional = true }
 
 # WebSocket
 tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], optional = true }
 
 [features]
-default       = ["audio", "websocket", "whisper-local", "vad"]
+default = ["audio", "websocket"]
 audio         = ["cpal", "hound", "rubato"]
 whisper-local = ["whisper-rs", "audio"]
 vad           = ["ort"]

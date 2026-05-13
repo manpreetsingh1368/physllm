@@ -1,3 +1,4 @@
+#[cfg(feature = "whisper-local")]
 //! stt/local.rs — Local Whisper inference via whisper-rs (whisper.cpp bindings).
 //!
 //! whisper.cpp uses:
