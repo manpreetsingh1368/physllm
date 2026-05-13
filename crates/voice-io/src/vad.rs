@@ -48,7 +48,7 @@ impl SpeechSegment {
 /// Silero VAD engine.
 pub struct SileroVad {
     /// ONNX session (lazy-loaded)
-    session:  Option<ort::Session>,
+    session:  Option<Box<ort::session::Session>>,
     model_path: String,
     /// Internal RNN state (h and c tensors)
     h: Array3<f32>,   // [2, 1, 64]
@@ -85,12 +85,12 @@ impl SileroVad {
 
         let session = ort::Session::builder()
             .map_err(|e| VoiceError::Vad(e.to_string()))?
-            .with_optimization_level(ort::GraphOptimizationLevel::All)
+            .with_optimization_level(ort::GraphOptimizationLevel::Level3)
             .map_err(|e| VoiceError::Vad(e.to_string()))?
             .commit_from_file(&self.model_path)
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
 
-        self.session = Some(session);
+        self.session = Some(Box::new(session));
         Ok(())
     }
 
@@ -108,14 +108,16 @@ impl SileroVad {
         // Input: [1, n] f32
         let input = Array2::from_shape_vec([1, n], samples.to_vec())
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
+        let sr = Array1::from_vec(vec![16000i64]);
 
-        // Run inference
-        let outputs = session.run(ort::inputs![
-            "input"   => input.view(),
-            "sr"      => Array1::from_vec(vec![16000i64]).view(),
-            "h"       => self.h.view(),
-            "c"       => self.c.view(),
-        ].map_err(|e| VoiceError::Vad(e.to_string()))?)
+        let inputs = ort::inputs![
+            "input" => input.view(),
+            "sr"    => sr.view(),
+            "h"     => self.h.view(),
+            "c"     => self.c.view(),
+        ];
+
+        let outputs = session.run(inputs)
             .map_err(|e| VoiceError::Vad(e.to_string()))?;
 
         // Output: speech_prob [1, 1], hn [2, 1, 64], cn [2, 1, 64]
