@@ -181,7 +181,7 @@ docker run -d \
 docker logs physllm 2>&1 | tail -5
 ```
 
-### GPT-OSS-120B (Coming Soon)
+### GPT-OSS-120B 
 
 117B parameter model. Needs ~80GB VRAM. Fits on MI300X (196GB).
 
@@ -448,10 +448,10 @@ See [BUGS_AND_FIXES.md](BUGS_AND_FIXES.md) for the complete list of 10 known iss
 - [x] GPT-OSS-20B inference
 - [x] CUDA + ROCm dual support
 - [x] OpenAI-compatible API
-- [ ] GPT-OSS-120B support
-- [ ] Native Rust MoE weight loader
+- [x] GPT-OSS-120B support
+- [x] Native Rust MoE weight loader
 - [ ] INT8/INT4 quantization kernels
-- [ ] Multi-GPU tensor parallelism
+- [x] Multi-GPU tensor parallelism
 - [ ] Continuous batching
 - [ ] LoRA fine-tuning
 
