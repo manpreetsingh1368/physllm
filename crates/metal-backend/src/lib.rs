@@ -1,5 +1,4 @@
 use metal::*;
-use std::sync::Arc;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -40,11 +39,7 @@ impl MetalBackend {
 
     pub fn alloc_buffer<T>(&self, count: usize) -> Result<Buffer, MetalError> {
         let size = (count * std::mem::size_of::<T>()) as u64;
-        let options = if self.is_unified {
-            MTLResourceOptions::StorageModeShared
-        } else {
-            MTLResourceOptions::StorageModeShared
-        };
+        let options = MTLResourceOptions::StorageModeShared;
 
         Ok(self.device.new_buffer(size, options))
     }
@@ -91,7 +86,7 @@ impl MetalBackend {
 
         encoder.set_compute_pipeline_state(pipeline);
         for (idx, buf) in buffers.iter().enumerate() {
-            encoder.set_buffer(idx as u32, Some(*buf), 0);
+            encoder.set_buffer(idx as u64, Some(*buf), 0);
         }
 
         let threads_per_group = pipeline.max_total_threads_per_threadgroup().min(256) as u64;
