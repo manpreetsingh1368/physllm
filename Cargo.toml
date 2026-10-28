@@ -6,10 +6,11 @@ members = [
     "crates/web-search",
     "crates/llm-core",
     "crates/sim-agent",
+    "crates/metal-backend",
     "crates/api-server",
     "crates/trainer",
     "crates/tensor-parallel",
-    "crates/voice-io",
+    "crates/voice-io", "crates/metal-backend",
 ]
 
 [workspace.package]
